@@ -1,0 +1,102 @@
+"use client"
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { Menu, X, Dumbbell, Sun, Moon } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Button } from "./ui/button";
+import { useTheme } from "next-themes";
+
+const navItems = [
+  { href: "/", label: "Home" },
+  { href: "/book", label: "Book a session" },
+  { href: "/check-in", label: "Check in/out" },
+  { href: "/access", label: "Facility access" },
+  { href: "/my-bookings", label: "My bookings" },
+  { href: "/report", label: "My report" },
+];
+
+export default function Navbar() {
+  const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  return (
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-16 items-center justify-between px-4 max-w-7xl mx-auto">
+        <Link href="/" className="flex items-center space-x-2">
+          <Dumbbell className="h-6 w-6 text-primary" />
+          <span className="font-bold text-lg hidden md:inline-block">VIT Bhopal Sports Facilities</span>
+          <span className="font-bold text-lg md:hidden">VITB Sports</span>
+        </Link>
+        
+        {/* Desktop Nav */}
+        <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "transition-colors hover:text-foreground/80",
+                pathname === item.href ? "text-primary" : "text-foreground/60"
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+          {mounted && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+            >
+              {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+            </Button>
+          )}
+        </nav>
+
+        {/* Mobile menu button */}
+        <div className="md:hidden flex items-center gap-2">
+          {mounted && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+            >
+              {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)}>
+            {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+        </div>
+      </div>
+
+      {/* Mobile Nav */}
+      {isOpen && (
+        <div className="md:hidden border-b bg-background">
+          <nav className="container flex flex-col p-4 space-y-3">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setIsOpen(false)}
+                className={cn(
+                  "block px-2 py-1 text-base font-medium rounded-md",
+                  pathname === item.href ? "bg-primary/10 text-primary" : "text-foreground/60 hover:bg-accent"
+                )}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+      )}
+    </header>
+  );
+}
