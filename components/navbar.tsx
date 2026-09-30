@@ -2,11 +2,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Menu, X, Dumbbell, Sun, Moon } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Menu, X, Dumbbell } from "lucide-react";
+import { useState } from "react";
 import { Button } from "./ui/button";
-import { useTheme } from "next-themes";
-
 const navItems = [
   { href: "/", label: "Home" },
   { href: "/book", label: "Book a session" },
@@ -19,12 +17,6 @@ const navItems = [
 export default function Navbar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -35,7 +27,6 @@ export default function Navbar() {
           <span className="font-bold text-lg md:hidden">VITB Sports</span>
         </Link>
         
-        {/* Desktop Nav */}
         <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
           {navItems.map((item) => (
             <Link
@@ -49,28 +40,10 @@ export default function Navbar() {
               {item.label}
             </Link>
           ))}
-          {mounted && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-            >
-              {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-            </Button>
-          )}
         </nav>
 
         {/* Mobile menu button */}
         <div className="md:hidden flex items-center gap-2">
-          {mounted && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-            >
-              {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-            </Button>
-          )}
           <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)}>
             {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
