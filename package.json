@@ -13,7 +13,6 @@
     "react": "^18",
     "react-dom": "^18",
     "lucide-react": "^0.395.0",
-    "recharts": "^2.12.7",
     "clsx": "^2.1.1",
     "tailwind-merge": "^2.3.0",
     "class-variance-authority": "^0.7.0",
