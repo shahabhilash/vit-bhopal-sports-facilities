@@ -11,7 +11,6 @@ const navItems = [
   { href: "/check-in", label: "Check in/out" },
   { href: "/access", label: "Facility access" },
   { href: "/my-bookings", label: "My bookings" },
-  { href: "/report", label: "My report" },
 ];
 
 export default function Navbar() {
