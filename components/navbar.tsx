@@ -20,9 +20,9 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 max-w-7xl mx-auto">
-        <Link href="/" className="flex items-center space-x-2">
-          <span className="font-bold text-lg hidden md:inline-block">VIT Bhopal Sports Facilities</span>
-          <span className="font-bold text-lg md:hidden">VITB Sports</span>
+        <Link href="/" className="flex flex-col justify-center leading-tight hover:opacity-80 transition-opacity">
+          <span className="font-bold text-lg">VIT Bhopal</span>
+          <span className="text-[10px] font-extrabold tracking-widest text-primary uppercase">Sports Facilities</span>
         </Link>
         
         <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
