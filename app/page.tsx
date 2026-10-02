@@ -11,9 +11,6 @@ export default function Home() {
       <section className="relative w-full bg-slate-50 py-20 md:py-32 overflow-hidden border-b border-slate-200">
         <div className="absolute inset-0 bg-grid-slate-100/[0.04] bg-[bottom_1px_center]" />
         <div className="container px-4 md:px-6 relative z-10 max-w-5xl mx-auto text-center space-y-8">
-          <div className="inline-block px-3 py-1 text-sm font-medium text-primary bg-primary/10 rounded-full mb-4">
-            Official Portal
-          </div>
           <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-slate-900 mb-4">
             VIT Bhopal <br className="md:hidden" />
             <span className="bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent">
