@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Menu, X, Dumbbell } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "./ui/button";
 const navItems = [
@@ -21,7 +21,6 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 max-w-7xl mx-auto">
         <Link href="/" className="flex items-center space-x-2">
-          <Dumbbell className="h-6 w-6 text-primary" />
           <span className="font-bold text-lg hidden md:inline-block">VIT Bhopal Sports Facilities</span>
           <span className="font-bold text-lg md:hidden">VITB Sports</span>
         </Link>
