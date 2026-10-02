@@ -24,17 +24,17 @@ export default function AccessPage() {
         </p>
       </div>
       
-      <div className="flex flex-wrap gap-2 mb-10">
-        <button className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md shadow-sm">
+      <div className="flex overflow-x-auto gap-2 pb-2 mb-10 no-scrollbar whitespace-nowrap">
+        <button className="flex-shrink-0 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md shadow-sm">
           Facilities
         </button>
-        <button className="px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 text-sm font-medium rounded-md transition-colors">
+        <button className="flex-shrink-0 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 text-sm font-medium rounded-md transition-colors">
           My sessions
         </button>
-        <button className="px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 text-sm font-medium rounded-md transition-colors">
+        <button className="flex-shrink-0 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 text-sm font-medium rounded-md transition-colors">
           Player groups
         </button>
-        <button className="px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 text-sm font-medium rounded-md transition-colors">
+        <button className="flex-shrink-0 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 text-sm font-medium rounded-md transition-colors">
           Reports
         </button>
       </div>
@@ -42,7 +42,7 @@ export default function AccessPage() {
       <div className="space-y-12">
         {/* Gyms Section */}
         <section>
-          <div className="flex justify-between items-baseline mb-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1 mb-4">
             <h2 className="text-xl font-medium text-foreground">Gyms</h2>
             <span className="text-xs text-muted-foreground">Live occupancy · no booking limit</span>
           </div>
@@ -72,7 +72,7 @@ export default function AccessPage() {
 
         {/* Recreation Rooms Section */}
         <section>
-          <div className="flex justify-between items-baseline mb-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1 mb-4">
             <h2 className="text-xl font-medium text-foreground">Recreation rooms</h2>
             <span className="text-xs text-muted-foreground">Block 1 - 8 - walk in play</span>
           </div>
