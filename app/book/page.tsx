@@ -52,12 +52,7 @@ export default function BookPage() {
     setIsSuccess(true);
   };
 
-  // Generate next 7 days
-  const next7Days = Array.from({ length: 7 }).map((_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    return d.toISOString().split('T')[0];
-  });
+
 
   if (isSuccess) {
     return (
@@ -112,17 +107,25 @@ export default function BookPage() {
             <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
             <h2 className="text-xl font-semibold">Select Date for {selectedSport?.name}</h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {next7Days.map(date => {
-              const d = new Date(date);
-              return (
-                <Card key={date} className={`cursor-pointer hover:border-primary transition-colors text-center py-6 ${selectedDate === date ? 'border-primary bg-primary/5' : ''}`} onClick={() => handleDateSelect(date)}>
-                  <div className="text-sm text-muted-foreground">{d.toLocaleDateString('en-US', { weekday: 'short' })}</div>
-                  <div className="text-2xl font-bold">{d.getDate()}</div>
-                  <div className="text-xs text-muted-foreground">{d.toLocaleDateString('en-US', { month: 'short' })}</div>
-                </Card>
-              );
-            })}
+          <div className="max-w-sm">
+            <div className="bg-card border rounded-lg p-6 shadow-sm">
+              <label htmlFor="booking-date" className="block font-medium mb-4 text-foreground">
+                Pick a Date from Calendar
+              </label>
+              <input 
+                id="booking-date"
+                type="date" 
+                className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground bg-background cursor-pointer"
+                min={new Date().toISOString().split('T')[0]}
+                value={selectedDate}
+                onChange={(e) => {
+                  if (e.target.value) handleDateSelect(e.target.value);
+                }}
+              />
+              <p className="text-xs text-muted-foreground mt-3">
+                Selecting a date will automatically proceed to time selection.
+              </p>
+            </div>
           </div>
         </div>
       )}
