@@ -80,11 +80,11 @@ export default function BookPage() {
       <h1 className="text-3xl font-bold mb-8">Book a Session</h1>
       
       {/* Step Indicator */}
-      <div className="flex items-center space-x-2 mb-8 text-sm font-medium">
+      <div className="flex flex-wrap items-center gap-2 mb-8 text-sm font-medium">
         <span className={`px-3 py-1 rounded-full ${step >= 1 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>1. Sport</span>
-        <span className="text-muted-foreground">&rarr;</span>
+        <span className="text-muted-foreground hidden sm:inline">&rarr;</span>
         <span className={`px-3 py-1 rounded-full ${step >= 2 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>2. Date</span>
-        <span className="text-muted-foreground">&rarr;</span>
+        <span className="text-muted-foreground hidden sm:inline">&rarr;</span>
         <span className={`px-3 py-1 rounded-full ${step >= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>3. Time</span>
       </div>
 
@@ -140,7 +140,7 @@ export default function BookPage() {
           {selectedSport.type !== 'gym' && (
             <div className="mb-6">
               <h3 className="font-medium mb-3">Select Court/Area</h3>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 {Array.from({ length: selectedSport.courts || 1 }).map((_, i) => (
                   <Button 
                     key={i} 
@@ -173,7 +173,7 @@ export default function BookPage() {
 
           <div className="bg-muted/50 p-6 rounded-xl border mt-8">
             <h3 className="font-semibold text-lg mb-4">Booking Summary</h3>
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
               <div>
                 <div className="text-sm text-muted-foreground">Sport</div>
                 <div className="font-medium">{selectedSport.name} {selectedCourt ? `- ${selectedCourt}` : ''}</div>

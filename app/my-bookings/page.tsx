@@ -33,12 +33,12 @@ export default function MyBookingsPage() {
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <h1 className="text-3xl font-bold mb-8">My Bookings</h1>
       
-      <div className="flex space-x-2 border-b mb-6 pb-px">
+      <div className="flex overflow-x-auto space-x-2 border-b mb-6 pb-px no-scrollbar whitespace-nowrap">
         {['Upcoming', 'Past', 'Cancelled'].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab as any)}
-            className={`px-4 py-2 font-medium text-sm -mb-px border-b-2 transition-colors ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            className={`flex-shrink-0 px-4 py-2 font-medium text-sm -mb-px border-b-2 transition-colors ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
           >
             {tab}
           </button>
