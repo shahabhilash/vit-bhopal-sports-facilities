@@ -1,8 +1,17 @@
 import Link from "next/link";
-import { Calendar, Info, FileText, CheckCircle } from "lucide-react";
+import Image from "next/image";
+import { Info, FileText, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { sportsFacilities } from "@/data/facilities";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Slider from "@/components/slider";
+
+const getImageForSport = (id: string) => {
+  if (id === "f_gym") return "/images/gym-1.JPG";
+  if (id === "f_tennis") return "/images/tennis-1.JPG";
+  if (id === "f_pickleball") return "/images/pickleball-1.jpg";
+  return "/images/slider-1.JPG"; // fallback for turf or generic
+};
 
 export default function Home() {
   return (
@@ -31,6 +40,9 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Stunning Automated Photo Slider */}
+      <Slider />
+
       <section className="py-16 md:py-24 container mx-auto px-4 max-w-7xl">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-4">
           <div>
@@ -46,11 +58,16 @@ export default function Home() {
           {sportsFacilities.map((sport) => {
             return (
               <Card key={sport.id} className="overflow-hidden hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 group border-border">
-                <div className="h-1.5 w-full bg-secondary group-hover:bg-primary transition-colors" />
+                <div className="h-1.5 w-full bg-secondary group-hover:bg-primary transition-colors z-20 relative" />
+                <div className="relative w-full h-48 overflow-hidden bg-slate-100">
+                  <Image 
+                    src={getImageForSport(sport.id)} 
+                    alt={sport.name} 
+                    fill 
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                </div>
                 <CardHeader className="pb-4">
-                  <div className="p-3 bg-secondary/50 w-fit rounded-lg mb-4 text-primary border border-border group-hover:border-primary/20 group-hover:bg-primary/5 transition-colors">
-                    <Calendar className="w-6 h-6" />
-                  </div>
                   <CardTitle className="text-xl text-foreground">{sport.name}</CardTitle>
                   <CardDescription className="text-muted-foreground line-clamp-2">{sport.description}</CardDescription>
                 </CardHeader>
