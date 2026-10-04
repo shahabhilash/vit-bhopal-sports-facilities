@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Info, FileText, CheckCircle } from "lucide-react";
+import { Info, FileText, CheckCircle, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { sportsFacilities } from "@/data/facilities";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,7 @@ const getImageForSport = (id: string) => {
   if (id === "f_gym") return "/images/gym-1.JPG";
   if (id === "f_tennis") return "/images/tennis-1.JPG";
   if (id === "f_pickleball") return "/images/pickleball-1.jpg";
-  return "/images/slider-1.JPG"; // fallback for turf or generic
+  return null; // No image for turf yet
 };
 
 export default function Home() {
@@ -59,15 +59,23 @@ export default function Home() {
             return (
               <Card key={sport.id} className="overflow-hidden hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 group border-border">
                 <div className="h-1.5 w-full bg-secondary group-hover:bg-primary transition-colors z-20 relative" />
-                <div className="relative w-full h-48 overflow-hidden bg-slate-100">
-                  <Image 
-                    src={getImageForSport(sport.id)} 
-                    alt={sport.name} 
-                    fill 
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                </div>
-                <CardHeader className="pb-4">
+                {getImageForSport(sport.id) ? (
+                  <div className="relative w-full h-48 overflow-hidden bg-slate-100">
+                    <Image 
+                      src={getImageForSport(sport.id)!} 
+                      alt={sport.name} 
+                      fill 
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                ) : (
+                  <div className="p-6 pb-0">
+                    <div className="p-3 bg-secondary/50 w-fit rounded-lg text-primary border border-border group-hover:border-primary/20 group-hover:bg-primary/5 transition-colors">
+                      <Calendar className="w-6 h-6" />
+                    </div>
+                  </div>
+                )}
+                <CardHeader className={getImageForSport(sport.id) ? "pb-4" : "pt-4 pb-4"}>
                   <CardTitle className="text-xl text-foreground">{sport.name}</CardTitle>
                   <CardDescription className="text-muted-foreground line-clamp-2">{sport.description}</CardDescription>
                 </CardHeader>
