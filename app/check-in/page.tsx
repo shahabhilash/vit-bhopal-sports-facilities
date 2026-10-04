@@ -8,6 +8,12 @@ import { Button } from "@/components/ui/button";
 
 export default function CheckInPage() {
   const [todayBookings, setTodayBookings] = useState<Booking[]>([]);
+  
+  // Checkout Modal State
+  const [checkoutBookingId, setCheckoutBookingId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState("");
+  const [raiseTicket, setRaiseTicket] = useState(false);
+  const [photoAttached, setPhotoAttached] = useState(false);
 
   useEffect(() => {
     const fetchBookings = () => {
@@ -16,7 +22,6 @@ export default function CheckInPage() {
       setTodayBookings(all.filter(b => b.date === today && b.status !== 'Cancelled'));
     };
     fetchBookings();
-    // Refresh interval could be added here
   }, []);
 
   const handleCheckIn = (id: string) => {
@@ -24,13 +29,21 @@ export default function CheckInPage() {
     setTodayBookings(getBookings().filter(b => b.date === new Date().toISOString().split('T')[0] && b.status !== 'Cancelled'));
   };
 
-  const handleCheckOut = (id: string) => {
-    checkOut(id);
-    setTodayBookings(getBookings().filter(b => b.date === new Date().toISOString().split('T')[0] && b.status !== 'Cancelled'));
+  const submitCheckout = () => {
+    if (checkoutBookingId) {
+      checkOut(checkoutBookingId);
+      setTodayBookings(getBookings().filter(b => b.date === new Date().toISOString().split('T')[0] && b.status !== 'Cancelled'));
+      
+      // Reset state (In a real app with DB, we would save the feedback/ticket here)
+      setCheckoutBookingId(null);
+      setFeedback("");
+      setRaiseTicket(false);
+      setPhotoAttached(false);
+    }
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="container mx-auto px-4 py-8 max-w-4xl relative">
       <h1 className="text-3xl font-bold mb-8">Today's Sessions</h1>
       
       {todayBookings.length === 0 ? (
@@ -47,7 +60,7 @@ export default function CheckInPage() {
           {todayBookings.map(booking => {
             const facility = sportsFacilities.find(f => f.id === booking.facilityId);
             return (
-              <Card key={booking.id} className="overflow-hidden">
+               <Card key={booking.id} className="overflow-hidden">
                 <div className={`h-2 w-full ${booking.status === 'Completed' ? 'bg-muted' : booking.status === 'Checked in' ? 'bg-green-500' : 'bg-primary'}`} />
                 <div className="p-6 md:flex md:items-center md:justify-between">
                   <div className="mb-4 md:mb-0">
@@ -65,7 +78,7 @@ export default function CheckInPage() {
                       </Button>
                     )}
                     {booking.status === 'Checked in' && (
-                      <Button onClick={() => handleCheckOut(booking.id)} variant="outline" size="lg" className="w-full md:w-auto border-green-500 text-green-600 hover:bg-green-50">
+                      <Button onClick={() => setCheckoutBookingId(booking.id)} variant="outline" size="lg" className="w-full md:w-auto border-green-500 text-green-600 hover:bg-green-50">
                         Check Out
                       </Button>
                     )}
@@ -79,6 +92,84 @@ export default function CheckInPage() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Checkout Feedback Modal */}
+      {checkoutBookingId && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <CardHeader>
+              <CardTitle>Session Feedback</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div>
+                <label className="text-sm font-medium text-foreground">How was your session?</label>
+                <textarea 
+                  className="w-full border rounded-md p-3 mt-2 min-h-[100px] text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                  placeholder="Tell us about your experience..."
+                  value={feedback}
+                  onChange={e => setFeedback(e.target.value)}
+                />
+              </div>
+              
+              <div className="flex items-center space-x-3 bg-secondary/30 p-3 rounded-md">
+                <input 
+                  type="checkbox" 
+                  id="ticket" 
+                  checked={raiseTicket}
+                  onChange={(e) => setRaiseTicket(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label htmlFor="ticket" className="text-sm font-medium cursor-pointer select-none">
+                  Report broken equipment or facility issue
+                </label>
+              </div>
+
+              {raiseTicket && (
+                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center bg-secondary/10 transition-all">
+                  <input 
+                    type="file" 
+                    id="photo" 
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => setPhotoAttached(!!e.target.files?.length)}
+                  />
+                  <label htmlFor="photo" className="cursor-pointer flex flex-col items-center">
+                    {photoAttached ? (
+                      <span className="text-sm font-bold text-green-600 bg-green-100 px-3 py-1 rounded-full">
+                        ✓ Photo successfully attached
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-sm text-primary font-bold">Click here to attach a photo</span>
+                        <span className="text-xs text-red-500 font-medium mt-2">
+                          * Photo evidence is compulsory to raise a ticket
+                        </span>
+                      </>
+                    )}
+                  </label>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button variant="ghost" onClick={() => {
+                  setCheckoutBookingId(null);
+                  setRaiseTicket(false);
+                  setPhotoAttached(false);
+                  setFeedback("");
+                }}>
+                  Cancel
+                </Button>
+                <Button 
+                  disabled={raiseTicket && !photoAttached}
+                  onClick={submitCheckout}
+                >
+                  Submit & Check Out
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
