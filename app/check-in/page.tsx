@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { getBookings, checkIn, checkOut } from "@/lib/bookings";
 import { Booking } from "@/types";
 import { sportsFacilities } from "@/data/facilities";
@@ -51,7 +52,7 @@ export default function CheckInPage() {
           <CardContent>
             <p className="text-muted-foreground">You have no bookings for today.</p>
             <Button asChild className="mt-4" variant="outline">
-              <a href="/book">Book a session</a>
+              <Link href="/#facilities">Book a session</Link>
             </Button>
           </CardContent>
         </Card>
@@ -133,7 +134,28 @@ export default function CheckInPage() {
                     id="photo" 
                     accept="image/*"
                     className="hidden"
-                    onChange={(e) => setPhotoAttached(!!e.target.files?.length)}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        // SECURITY: Validate file size (max 5MB) to prevent Denial of Service via huge uploads
+                        if (file.size > 5 * 1024 * 1024) {
+                          alert("File is too large. Maximum allowed size is 5MB.");
+                          e.target.value = '';
+                          setPhotoAttached(false);
+                          return;
+                        }
+                        // SECURITY: Strictly validate MIME type to prevent malicious non-image files
+                        if (!file.type.startsWith('image/')) {
+                          alert("Security Error: Only image files are allowed.");
+                          e.target.value = '';
+                          setPhotoAttached(false);
+                          return;
+                        }
+                        setPhotoAttached(true);
+                      } else {
+                        setPhotoAttached(false);
+                      }
+                    }}
                   />
                   <label htmlFor="photo" className="cursor-pointer flex flex-col items-center">
                     {photoAttached ? (
