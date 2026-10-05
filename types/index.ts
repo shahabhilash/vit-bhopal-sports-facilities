@@ -14,6 +14,7 @@ export interface Facility {
   description: string;
   courts?: number;
   capacity?: number;
+  areaNames?: string[];
   openingHours: string;
   rules: string[];
   equipment: string[];

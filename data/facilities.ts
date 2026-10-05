@@ -40,6 +40,7 @@ export const sportsFacilities: Facility[] = [
     type: "gym",
     description: "Fully equipped gymnasium with recreation area.",
     capacity: 30,
+    areaNames: ["Block 1 Gym", "Block 2 Gym"],
     openingHours: "06:00 - 10:00, 16:00 - 21:00",
     rules: ["Towel mandatory", "Wipe down machines after use", "Indoor shoes only"],
     equipment: ["Free weights", "Cardio machines", "Resistance machines", "Yoga mats"],

@@ -50,7 +50,7 @@ function BookingForm() {
     const newBooking = addBooking({
       userId: demoUser.id,
       facilityId: selectedSport.id,
-      courtId: selectedSport.type === 'gym' ? undefined : selectedCourt,
+      courtId: (selectedSport.courts || selectedSport.areaNames) ? selectedCourt : undefined,
       date: selectedDate,
       startTime: selectedSlot,
       endTime: `${parseInt(selectedSlot.split(':')[0]) + 1}:00`,
@@ -134,19 +134,30 @@ function BookingForm() {
             <h2 className="text-xl font-semibold">Select Time on {selectedDate}</h2>
           </div>
           
-          {selectedSport.type !== 'gym' && (
+          {(selectedSport.courts || selectedSport.areaNames) && (
             <div className="mb-6">
-              <h3 className="font-medium mb-3">Select Court/Area</h3>
+              <h3 className="font-medium mb-3">Select Location / Area</h3>
               <div className="flex flex-wrap gap-3">
-                {Array.from({ length: selectedSport.courts || 1 }).map((_, i) => (
-                  <Button 
-                    key={i} 
-                    variant={selectedCourt === `Court ${i + 1}` ? "default" : "outline"}
-                    onClick={() => setSelectedCourt(`Court ${i + 1}`)}
-                  >
-                    Court {i + 1}
-                  </Button>
-                ))}
+                {selectedSport.areaNames 
+                  ? selectedSport.areaNames.map((areaName, i) => (
+                      <Button 
+                        key={i} 
+                        variant={selectedCourt === areaName ? "default" : "outline"}
+                        onClick={() => setSelectedCourt(areaName)}
+                      >
+                        {areaName}
+                      </Button>
+                    ))
+                  : Array.from({ length: selectedSport.courts || 1 }).map((_, i) => (
+                      <Button 
+                        key={i} 
+                        variant={selectedCourt === `Court ${i + 1}` ? "default" : "outline"}
+                        onClick={() => setSelectedCourt(`Court ${i + 1}`)}
+                      >
+                        Court {i + 1}
+                      </Button>
+                    ))
+                }
               </div>
             </div>
           )}
@@ -180,7 +191,7 @@ function BookingForm() {
                 <div className="font-medium">{selectedDate} @ {selectedSlot}</div>
               </div>
             </div>
-            <Button size="lg" className="w-full" onClick={handleConfirm} disabled={!selectedSlot || (selectedSport.type !== 'gym' && !selectedCourt)}>
+            <Button size="lg" className="w-full" onClick={handleConfirm} disabled={!selectedSlot || ((selectedSport.courts || selectedSport.areaNames) ? !selectedCourt : false)}>
               Confirm Booking
             </Button>
           </div>
