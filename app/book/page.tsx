@@ -1,5 +1,5 @@
 "use client"
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { sportsFacilities } from "@/data/facilities";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
