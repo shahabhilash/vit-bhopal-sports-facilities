@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { sportsFacilities } from "@/data/facilities";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,25 +19,17 @@ const generateTimeSlots = (facility: Facility) => {
 
 function BookingForm() {
   const searchParams = useSearchParams();
-  const [step, setStep] = useState(1);
-  const [selectedSport, setSelectedSport] = useState<Facility | null>(null);
+  const sportParam = searchParams.get("sport");
+  const initialSport = sportParam ? sportsFacilities.find((s) => s.id === sportParam) || null : null;
+
+  // Initialize state directly from the URL to avoid flashes or useEffect bugs during soft navigation
+  const [step, setStep] = useState(initialSport ? 2 : 1);
+  const [selectedSport, setSelectedSport] = useState<Facility | null>(initialSport);
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedSlot, setSelectedSlot] = useState<string>("");
   const [selectedCourt, setSelectedCourt] = useState<string>("");
   const [isSuccess, setIsSuccess] = useState(false);
   const [bookingId, setBookingId] = useState("");
-
-  // Read URL query parameters to auto-select the sport if linked from homepage
-  useEffect(() => {
-    const sportId = searchParams.get("sport");
-    if (sportId) {
-      const sport = sportsFacilities.find((s) => s.id === sportId);
-      if (sport) {
-        setSelectedSport(sport);
-        setStep(2); // Skip straight to Date selection
-      }
-    }
-  }, [searchParams]);
 
   const handleSportSelect = (sport: Facility) => {
     setSelectedSport(sport);
@@ -204,6 +196,15 @@ function BookingForm() {
   );
 }
 
+function BookingFormWrapper() {
+  const searchParams = useSearchParams();
+  const sportParam = searchParams.get("sport") || "none";
+  
+  // By using the 'key' prop, React will completely destroy and rebuild the component
+  // whenever the sport parameter changes in the URL, ensuring state perfectly matches.
+  return <BookingForm key={sportParam} />;
+}
+
 export default function BookPage() {
   return (
     <Suspense fallback={
@@ -211,7 +212,7 @@ export default function BookPage() {
         Loading booking system...
       </div>
     }>
-      <BookingForm />
+      <BookingFormWrapper />
     </Suspense>
   );
 }
