@@ -1,6 +1,6 @@
 "use client"
 import { useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { sportsFacilities } from "@/data/facilities";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,6 @@ import { addBooking } from "@/lib/bookings";
 import { demoUser } from "@/data/user";
 import { Calendar as CalendarIcon, CheckCircle2, Clock } from "lucide-react";
 import { Facility } from "@/types";
-
-import { useRouter } from "next/navigation";
 
 const generateTimeSlots = (facility: Facility) => {
   const slots = [];
@@ -103,7 +101,7 @@ function BookingForm() {
       {step === 2 && (
         <div className="space-y-6">
           <div className="flex items-center gap-4">
-            <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
+            <Button variant="outline" onClick={() => router.push("/#facilities")}>Back to Facilities</Button>
             <h2 className="text-xl font-semibold">Select Date for {selectedSport?.name}</h2>
           </div>
           <div className="max-w-sm">
