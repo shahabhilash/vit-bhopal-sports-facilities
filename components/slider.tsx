@@ -56,7 +56,7 @@ export default function Slider() {
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4 pt-8">
             <Button asChild size="lg" className="rounded-md px-8 shadow-xl shadow-black/20 h-14 text-base font-bold transition-all hover:scale-[1.03] bg-primary text-primary-foreground hover:bg-primary/90">
-              <Link href="/book">Book a session</Link>
+              <Link href="/#facilities">Book a session</Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="rounded-md px-8 h-14 text-base font-bold bg-white/10 text-white border-white/20 hover:bg-white/20 transition-all hover:scale-[1.03] backdrop-blur-sm">
               <Link href="/check-in">Check in/out</Link>

@@ -19,7 +19,7 @@ export default function Home() {
       {/* Stunning Automated Photo Slider overlaid with Hero Text */}
       <Slider />
 
-      <section className="py-16 md:py-24 container mx-auto px-4 max-w-7xl">
+      <section id="facilities" className="py-16 md:py-24 container mx-auto px-4 max-w-7xl">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-4">
           <div>
             <h2 className="text-3xl font-bold tracking-tight text-foreground">Our Facilities</h2>
