@@ -100,6 +100,8 @@ export default function AccessPage() {
                   src={imgSrc}
                   alt={`${activeGallery} facility photo ${idx + 1}`}
                   fill
+                  priority={idx === 0} // Preload the large feature image instantly
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Instructs Next.js to compress aggressively
                   className="object-cover hover:scale-110 transition-transform duration-700 ease-out"
                 />
               </div>
