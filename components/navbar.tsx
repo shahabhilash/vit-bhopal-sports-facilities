@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Button } from "./ui/button";
 const navItems = [
   { href: "/", label: "Home" },
-  { href: "/book", label: "Book a session" },
+  { href: "/#facilities", label: "Book a session" },
   { href: "/check-in", label: "Check in/out" },
   { href: "/access", label: "Facility access" },
   { href: "/my-bookings", label: "My bookings" },

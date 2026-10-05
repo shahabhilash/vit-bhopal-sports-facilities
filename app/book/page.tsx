@@ -9,6 +9,8 @@ import { demoUser } from "@/data/user";
 import { Calendar as CalendarIcon, CheckCircle2, Clock } from "lucide-react";
 import { Facility } from "@/types";
 
+import { useRouter } from "next/navigation";
+
 const generateTimeSlots = (facility: Facility) => {
   const slots = [];
   for (let i = 6; i <= 21; i++) {
@@ -19,11 +21,12 @@ const generateTimeSlots = (facility: Facility) => {
 
 function BookingForm() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const sportParam = searchParams.get("sport");
   const initialSport = sportParam ? sportsFacilities.find((s) => s.id === sportParam) || null : null;
 
   // Initialize state directly from the URL to avoid flashes or useEffect bugs during soft navigation
-  const [step, setStep] = useState(initialSport ? 2 : 1);
+  const [step, setStep] = useState(2); // We now ALWAYS start at step 2
   const [selectedSport, setSelectedSport] = useState<Facility | null>(initialSport);
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedSlot, setSelectedSlot] = useState<string>("");
@@ -31,10 +34,12 @@ function BookingForm() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [bookingId, setBookingId] = useState("");
 
-  const handleSportSelect = (sport: Facility) => {
-    setSelectedSport(sport);
-    setStep(2);
-  };
+  // Redirect to homepage if they somehow land here without selecting a sport
+  useEffect(() => {
+    if (!initialSport) {
+      router.replace("/#facilities");
+    }
+  }, [initialSport, router]);
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
@@ -56,6 +61,10 @@ function BookingForm() {
     setBookingId(newBooking.id);
     setIsSuccess(true);
   };
+
+  if (!selectedSport) {
+    return <div className="container py-24 text-center">Redirecting to facilities...</div>;
+  }
 
   if (isSuccess) {
     return (
@@ -84,25 +93,12 @@ function BookingForm() {
       
       {/* Step Indicator */}
       <div className="flex flex-wrap items-center gap-2 mb-8 text-sm font-medium">
-        <span className={`px-3 py-1 rounded-full ${step >= 1 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>1. Sport</span>
+        <span className="px-3 py-1 rounded-full bg-primary text-primary-foreground">1. Sport Selected</span>
         <span className="text-muted-foreground hidden sm:inline">&rarr;</span>
         <span className={`px-3 py-1 rounded-full ${step >= 2 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>2. Date</span>
         <span className="text-muted-foreground hidden sm:inline">&rarr;</span>
         <span className={`px-3 py-1 rounded-full ${step >= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>3. Time</span>
       </div>
-
-      {step === 1 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {sportsFacilities.map(sport => (
-            <Card key={sport.id} className="cursor-pointer hover:border-primary transition-colors" onClick={() => handleSportSelect(sport)}>
-              <CardHeader>
-                <CardTitle>{sport.name}</CardTitle>
-                <CardDescription>{sport.description}</CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-      )}
 
       {step === 2 && (
         <div className="space-y-6">
