@@ -1,5 +1,6 @@
 "use client"
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { sportsFacilities } from "@/data/facilities";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,6 @@ import { Calendar as CalendarIcon, CheckCircle2, Clock } from "lucide-react";
 import { Facility } from "@/types";
 
 const generateTimeSlots = (facility: Facility) => {
-  // Simplistic slots for demo based on 6am to 10pm
   const slots = [];
   for (let i = 6; i <= 21; i++) {
     slots.push(`${i.toString().padStart(2, '0')}:00`);
@@ -17,7 +17,8 @@ const generateTimeSlots = (facility: Facility) => {
   return slots;
 };
 
-export default function BookPage() {
+function BookingForm() {
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
   const [selectedSport, setSelectedSport] = useState<Facility | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -25,6 +26,18 @@ export default function BookPage() {
   const [selectedCourt, setSelectedCourt] = useState<string>("");
   const [isSuccess, setIsSuccess] = useState(false);
   const [bookingId, setBookingId] = useState("");
+
+  // Read URL query parameters to auto-select the sport if linked from homepage
+  useEffect(() => {
+    const sportId = searchParams.get("sport");
+    if (sportId) {
+      const sport = sportsFacilities.find((s) => s.id === sportId);
+      if (sport) {
+        setSelectedSport(sport);
+        setStep(2); // Skip straight to Date selection
+      }
+    }
+  }, [searchParams]);
 
   const handleSportSelect = (sport: Facility) => {
     setSelectedSport(sport);
@@ -51,8 +64,6 @@ export default function BookPage() {
     setBookingId(newBooking.id);
     setIsSuccess(true);
   };
-
-
 
   if (isSuccess) {
     return (
@@ -190,5 +201,17 @@ export default function BookPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function BookPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto px-4 py-16 text-center text-muted-foreground">
+        Loading booking system...
+      </div>
+    }>
+      <BookingForm />
+    </Suspense>
   );
 }
