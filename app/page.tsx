@@ -16,31 +16,7 @@ const getImageForSport = (id: string) => {
 export default function Home() {
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Official Hero Section */}
-      <section className="relative w-full bg-background py-20 md:py-32 overflow-hidden border-b border-border">
-        <div className="absolute inset-0 bg-primary/5 bg-[bottom_1px_center]" />
-        <div className="container px-4 md:px-6 relative z-10 max-w-5xl mx-auto text-center space-y-8">
-          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-foreground mb-4">
-            VIT Bhopal <br className="md:hidden" />
-            <span className="text-primary">
-              Sports Facilities
-            </span>
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Welcome to the official VIT Bhopal Sports Facilities portal. Book courts, check availability, and manage your physical well-being seamlessly.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4 pt-8">
-            <Button asChild size="lg" className="rounded-md px-8 shadow-lg shadow-primary/20 h-12 text-base font-semibold transition-all hover:scale-[1.02]">
-              <Link href="/book">Book a session</Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="rounded-md px-8 h-12 text-base font-semibold border-border hover:bg-secondary transition-all hover:scale-[1.02]">
-              <Link href="/check-in">Check in/out</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Stunning Automated Photo Slider */}
+      {/* Stunning Automated Photo Slider overlaid with Hero Text */}
       <Slider />
 
       <section className="py-16 md:py-24 container mx-auto px-4 max-w-7xl">
