@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 
 const photoGalleries = {
   gym: [
-    "/images/gym-1.JPG", "/images/gym-2.JPG", "/images/gym-3.JPG", "/images/gym-4.JPG", 
+    "/images/gym-1.PNG", "/images/gym-2.JPG", "/images/gym-3.JPG", "/images/gym-4.JPG", 
     "/images/gym-5.jpg", "/images/gym-6.jpg", "/images/gym-7.jpg", "/images/gym-8.jpg"
   ],
   tennis: [
