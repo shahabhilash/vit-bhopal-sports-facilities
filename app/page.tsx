@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import Slider from "@/components/slider";
 
 const getImageForSport = (id: string) => {
-  if (id === "f_gym") return "/images/gym-1.JPG";
+  if (id === "f_gym") return "/images/gym-1.PNG";
   if (id === "f_tennis") return "/images/tennis-1.JPG";
   if (id === "f_pickleball") return "/images/pickleball-1.jpg";
   return null; // No image for turf yet
