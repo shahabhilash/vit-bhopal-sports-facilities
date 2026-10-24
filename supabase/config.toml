@@ -1,0 +1,42 @@
+# Local development settings for the Supabase CLI (`supabase start`).
+# Hosted projects are configured in the dashboard; docs/DEPLOYMENT.md lists
+# the same settings for dev, preview and production.
+project_id = "vitb-sports"
+
+[api]
+schemas = ["public"]
+
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/**"]
+jwt_expiry = 3600
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+# Sign-in is a 6-digit code (email OTP); no passwords are stored.
+otp_length = 6
+otp_expiry = 600
+max_frequency = "60s"
+
+# New users receive the confirmation template, returning users the magic-link
+# template. Both show the code instead of a link.
+[auth.email.template.confirmation]
+subject = "Your VIT Bhopal Sports sign-in code"
+content_path = "./supabase/templates/otp-code.html"
+
+[auth.email.template.magic_link]
+subject = "Your VIT Bhopal Sports sign-in code"
+content_path = "./supabase/templates/otp-code.html"
+
+# Rejects any address outside @vitbhopal.ac.in before the user is created.
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/public/hook_before_user_created"
+
+[auth.rate_limit]
+email_sent = 30
+token_verifications = 30
+sign_in_sign_ups = 30
