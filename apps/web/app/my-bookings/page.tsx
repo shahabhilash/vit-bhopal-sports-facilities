@@ -1,87 +1,143 @@
-"use client"
-import { useEffect, useState } from "react";
-import { getBookings, updateBookingStatus } from "@/lib/bookings";
-import { Booking } from "@/types";
-import { sportsFacilities } from "@/data/facilities";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+"use client";
+import { useState } from "react";
+import Link from "next/link";
+import { BarChart3, CalendarPlus, CalendarX2, History } from "lucide-react";
+import { slotStartInstant } from "@vitb/shared";
+import { BookingCard } from "@/components/booking/booking-card";
+import { PrototypeNotice } from "@/components/prototype-notice";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { EmptyState, PageHeader, Skeleton } from "@/components/ui/feedback";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "@/components/ui/toaster";
+import { cancelBooking, isActive, useBookings, type Booking } from "@/lib/bookings";
+import { FACILITIES } from "@/lib/catalog";
+import { formatLongDate, slotLabel } from "@/lib/format";
+import { useNow } from "@/lib/use-now";
+import { cn } from "@/lib/utils";
+
+const HOUR_MS = 60 * 60 * 1000;
+const byStart = (a: Booking, b: Booking) => a.date.localeCompare(b.date) || a.slotIndex - b.slotIndex;
 
 export default function MyBookingsPage() {
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [activeTab, setActiveTab] = useState<'Upcoming' | 'Past' | 'Cancelled'>('Upcoming');
+  const bookings = useBookings();
+  const now = useNow();
+  const [toCancel, setToCancel] = useState<Booking | null>(null);
 
-  useEffect(() => {
-    setBookings(getBookings());
-  }, []);
+  if (!now) {
+    return (
+      <div className="container max-w-3xl py-6 sm:py-10">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="mt-6 h-11 w-full" />
+        <Skeleton className="mt-4 h-36 w-full" />
+      </div>
+    );
+  }
 
-  const handleCancel = (id: string) => {
-    if (confirm("Are you sure you want to cancel this booking?")) {
-      updateBookingStatus(id, 'Cancelled');
-      setBookings(getBookings());
-    }
-  };
+  const ended = (b: Booking) => slotStartInstant(b.date, b.slotIndex).getTime() + HOUR_MS <= now.getTime();
+  const upcoming = bookings.filter((b) => isActive(b) && !ended(b)).sort(byStart);
+  const past = bookings.filter((b) => b.status === "completed" || (isActive(b) && ended(b))).sort((a, b) => byStart(b, a));
+  const cancelled = bookings.filter((b) => b.status === "cancelled").sort((a, b) => byStart(b, a));
 
-  const isPast = (b: Booking) => b.status === 'Completed' || new Date(b.date) < new Date(new Date().toISOString().split('T')[0]);
-  
-  const filteredBookings = bookings.filter(b => {
-    if (activeTab === 'Cancelled') return b.status === 'Cancelled';
-    if (activeTab === 'Past') return isPast(b) && b.status !== 'Cancelled';
-    return !isPast(b) && b.status !== 'Cancelled' && b.status !== 'Completed';
-  });
+  const canCancel = (b: Booking) =>
+    b.status === "confirmed" && slotStartInstant(b.date, b.slotIndex).getTime() - now.getTime() > HOUR_MS;
+
+  function confirmCancel() {
+    if (!toCancel) return;
+    cancelBooking(toCancel.id);
+    toast("success", "Booking cancelled", `${FACILITIES[toCancel.facility].rule.name}, ${slotLabel(toCancel.slotIndex)}`);
+    setToCancel(null);
+  }
+
+  const list = (items: Booking[], empty: React.ReactNode, withActions = false) =>
+    items.length === 0 ? (
+      empty
+    ) : (
+      <ul className="space-y-3">
+        {items.map((b) => (
+          <li key={b.id}>
+            <BookingCard
+              booking={b}
+              actions={
+                withActions &&
+                b.status === "confirmed" &&
+                (canCancel(b) ? (
+                  <Button variant="outline" className="text-destructive" onClick={() => setToCancel(b)}>
+                    Cancel booking
+                  </Button>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Cancellation closed 1 hour before the start.</p>
+                ))
+              }
+            />
+          </li>
+        ))}
+      </ul>
+    );
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <h1 className="text-3xl font-bold mb-8">My Bookings</h1>
-      
-      <div className="flex overflow-x-auto space-x-2 border-b mb-6 pb-px no-scrollbar whitespace-nowrap">
-        {['Upcoming', 'Past', 'Cancelled'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab as any)}
-            className={`flex-shrink-0 px-4 py-2 font-medium text-sm -mb-px border-b-2 transition-colors ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+    <div className="container max-w-3xl py-6 sm:py-10">
+      <PageHeader
+        title="My bookings"
+        actions={
+          <Link href="/report" className={cn(buttonVariants({ variant: "outline" }))}>
+            <BarChart3 aria-hidden />
+            Activity
+          </Link>
+        }
+      />
+      <PrototypeNotice />
 
-      {filteredBookings.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          No {activeTab.toLowerCase()} bookings found.
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {filteredBookings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(booking => {
-            const facility = sportsFacilities.find(f => f.id === booking.facilityId);
-            return (
-              <Card key={booking.id} className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-bold text-lg">{facility?.name} {booking.courtId ? `- ${booking.courtId}` : ''}</h3>
-                  <div className="text-sm text-muted-foreground">
-                    {new Date(booking.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                  </div>
-                  <div className="text-sm font-medium mt-1">
-                    {booking.startTime} - {booking.endTime}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                    booking.status === 'Cancelled' ? 'bg-red-100 text-red-700' :
-                    booking.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                  }`}>
-                    {booking.status}
-                  </span>
-                  {activeTab === 'Upcoming' && (
-                    <Button variant="destructive" size="sm" onClick={() => handleCancel(booking.id)}>
-                      Cancel
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+      <Tabs defaultValue="upcoming" className="mt-6">
+        <TabsList aria-label="Booking lists">
+          <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
+          <TabsTrigger value="past">Past</TabsTrigger>
+          <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+        </TabsList>
+        <TabsContent value="upcoming">
+          {list(
+            upcoming,
+            <EmptyState
+              icon={CalendarPlus}
+              title="No upcoming bookings"
+              description="Pick a sport, day and time to book."
+              action={
+                <Link href="/book" className={buttonVariants({ size: "lg" })}>
+                  Book a slot
+                </Link>
+              }
+            />,
+            true,
+          )}
+        </TabsContent>
+        <TabsContent value="past">
+          {list(past, <EmptyState icon={History} title="No past bookings yet" />)}
+        </TabsContent>
+        <TabsContent value="cancelled">
+          {list(cancelled, <EmptyState icon={CalendarX2} title="No cancelled bookings" />)}
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={toCancel !== null} onOpenChange={(open) => !open && setToCancel(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel this booking?</DialogTitle>
+            <DialogDescription>
+              {toCancel &&
+                `${FACILITIES[toCancel.facility].rule.name} · ${toCancel.resource}, ${formatLongDate(toCancel.date)}, ${slotLabel(toCancel.slotIndex)}.`}{" "}
+              The slot is released to other students. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" size="lg" onClick={() => setToCancel(null)}>
+              Keep booking
+            </Button>
+            <Button variant="destructive" size="lg" onClick={confirmCancel}>
+              Cancel booking
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

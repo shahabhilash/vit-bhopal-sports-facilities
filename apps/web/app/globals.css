@@ -2,67 +2,57 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design tokens (HSL channels, consumed by tailwind.config.ts).
+ * Contrast targets: body text and filled buttons >= 4.5:1 (WCAG AA).
+ *   primary   #55702F on white 5.6:1, on background 5.1:1
+ *   muted-fg  #5F6758 on background 5.4:1
+ * The lighter brand sage (#8FA866) is "brand": decorative only, never text
+ * on light surfaces or a fill under white text.
+ */
 @layer base {
   :root {
-    --background: 35 43% 94.5%;
-    --foreground: 80 15% 20%;
+    --background: 46 38% 95%;        /* #F7F5EE warm cream */
+    --foreground: 84 17% 18%;        /* #2F3526 deep olive */
+    --surface: 0 0% 100%;            /* cards */
+    --surface-sunken: 45 26% 91%;    /* wells, inactive chips */
 
     --card: 0 0% 100%;
-    --card-foreground: 80 15% 20%;
-
+    --card-foreground: 84 17% 18%;
     --popover: 0 0% 100%;
-    --popover-foreground: 80 15% 20%;
+    --popover-foreground: 84 17% 18%;
 
-    --primary: 83 29% 54%;
+    --primary: 85 41% 31%;           /* #55702F */
+    --primary-hover: 85 43% 26%;
     --primary-foreground: 0 0% 100%;
+    --brand: 83 29% 53%;             /* #8FA866 decorative sage */
+    --brand-soft: 84 24% 87%;        /* #DEE3D7 */
 
-    --secondary: 80 15% 88%;
-    --secondary-foreground: 83 29% 54%;
+    --secondary: 84 24% 87%;
+    --secondary-foreground: 84 17% 18%;
+    --muted: 45 26% 91%;
+    --muted-foreground: 92 8% 37%;   /* #5F6758 */
+    --accent: 84 24% 90%;
+    --accent-foreground: 84 17% 18%;
 
-    --muted: 35 30% 90%;
-    --muted-foreground: 80 10% 45%;
-
-    --accent: 80 15% 88%;
-    --accent-foreground: 83 29% 54%;
-
-    --destructive: 0 84% 60%;
+    --success: 142 52% 30%;
+    --success-soft: 138 40% 92%;
+    --warning: 32 85% 32%;
+    --warning-soft: 40 90% 92%;
+    --destructive: 0 66% 44%;
     --destructive-foreground: 0 0% 100%;
+    --destructive-soft: 0 70% 95%;
+    --info: 210 55% 36%;
+    --info-soft: 210 60% 94%;
 
-    --border: 35 20% 85%;
-    --input: 35 20% 85%;
-    --ring: 83 29% 54%;
+    --border: 44 18% 83%;
+    --input: 60 6% 50%;              /* form control borders: >= 3:1 on surface */
+    --ring: 85 41% 31%;
 
-    --radius: 0.5rem;
-  }
+    --radius: 0.75rem;
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    /* Height of the mobile bottom navigation, used for page padding. */
+    --bottom-nav-height: 4rem;
   }
 }
 
@@ -70,7 +60,41 @@
   * {
     @apply border-border;
   }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+  }
+  h1, h2, h3 {
+    @apply text-balance;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
