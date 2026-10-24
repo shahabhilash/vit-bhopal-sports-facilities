@@ -1,137 +1,83 @@
-"use client"
-import { useEffect, useState } from "react";
-import { getBookings } from "@/lib/bookings";
-import { Booking } from "@/types";
-import { sportsFacilities } from "@/data/facilities";
+"use client";
+import Link from "next/link";
+import { ArrowLeft, BarChart3 } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { PrototypeNotice } from "@/components/prototype-notice";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { EmptyState, PageHeader } from "@/components/ui/feedback";
+import { useBookings } from "@/lib/bookings";
+import { BOOKABLE, FACILITIES } from "@/lib/catalog";
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+function Stat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-xl border bg-card p-4 shadow-card">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="mt-1 truncate text-2xl font-bold tabular-nums">{value}</p>
+    </div>
+  );
+}
 
 export default function ReportPage() {
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const bookings = useBookings();
+  const completed = bookings.filter((b) => b.status === "completed");
+  const cancelled = bookings.filter((b) => b.status === "cancelled").length;
 
-  useEffect(() => {
-    setBookings(getBookings());
-  }, []);
-
-  const completedBookings = bookings.filter(b => b.status === 'Completed');
-  const cancelledBookings = bookings.filter(b => b.status === 'Cancelled');
-  
-  const totalHours = completedBookings.length; // 1 hour per session for simplicity
-
-  // Mock data for charts
-  const barData = [
-    { name: 'Mon', sessions: 1 },
-    { name: 'Tue', sessions: 2 },
-    { name: 'Wed', sessions: 0 },
-    { name: 'Thu', sessions: 1 },
-    { name: 'Fri', sessions: 3 },
-    { name: 'Sat', sessions: 4 },
-    { name: 'Sun', sessions: 2 },
-  ];
-
-  const sportCounts: Record<string, number> = {};
-  completedBookings.forEach(b => {
-    const name = sportsFacilities.find(f => f.id === b.facilityId)?.name || 'Unknown';
-    sportCounts[name] = (sportCounts[name] || 0) + 1;
-  });
-  
-  // Mix in some mock data if empty
-  const pieData = Object.keys(sportCounts).length > 0 ? 
-    Object.keys(sportCounts).map(key => ({ name: key, value: sportCounts[key] })) :
-    [
-      { name: 'Pickleball', value: 10 },
-      { name: 'Tennis', value: 5 },
-      { name: 'Gym', value: 15 },
-    ];
-
-  const mostPlayed = pieData.sort((a, b) => b.value - a.value)[0]?.name || 'N/A';
+  const bySport = BOOKABLE.map((code) => ({
+    sport: FACILITIES[code].rule.name,
+    sessions: completed.filter((b) => b.facility === code).length,
+  }));
+  const top = [...bySport].sort((a, b) => b.sessions - a.sessions)[0];
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <h1 className="text-3xl font-bold mb-8">My Activity Report</h1>
-      
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Sessions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{completedBookings.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Hours</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{totalHours}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Most Played</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold truncate">{mostPlayed}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Cancellations</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-red-500">{cancelledBookings.length}</div>
-          </CardContent>
-        </Card>
-      </div>
+    <div className="container max-w-3xl py-6 sm:py-10">
+      <Link href="/my-bookings" className="-ml-2 mb-2 inline-flex h-11 items-center gap-1 rounded-lg px-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="h-4 w-4" aria-hidden />
+        My bookings
+      </Link>
+      <PageHeader title="Your activity" description="Sessions you checked out of. Each slot is one hour." />
+      <PrototypeNotice />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Sessions This Week</CardTitle>
-          </CardHeader>
-          <CardContent className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Bar dataKey="sessions" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle>Hours by Sport</CardTitle>
-          </CardHeader>
-          <CardContent className="h-72 flex justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
+      {completed.length === 0 ? (
+        <EmptyState
+          className="mt-6"
+          icon={BarChart3}
+          title="No completed sessions yet"
+          description="After you check out of a session, it is counted here."
+          action={
+            <Link href="/book" className={buttonVariants({ size: "lg" })}>
+              Book a slot
+            </Link>
+          }
+        />
+      ) : (
+        <>
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Stat label="Sessions" value={completed.length} />
+            <Stat label="Hours played" value={completed.length} />
+            <Stat label="Most played" value={top && top.sessions > 0 ? top.sport : "—"} />
+            <Stat label="Cancelled" value={cancelled} />
+          </div>
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="text-base">Sessions by sport</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-48" role="img" aria-label={bySport.map((s) => `${s.sport}: ${s.sessions}`).join(", ")}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={bySport} layout="vertical" margin={{ left: 8, right: 16 }}>
+                    <CartesianGrid horizontal={false} stroke="hsl(var(--border))" />
+                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12 }} />
+                    <YAxis type="category" dataKey="sport" width={84} tick={{ fontSize: 13 }} />
+                    <Tooltip cursor={{ fill: "hsl(var(--accent))" }} />
+                    <Bar dataKey="sessions" name="Sessions" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={22} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

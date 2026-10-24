@@ -1,171 +1,146 @@
-"use client"
-import { useState } from "react";
 import Image from "next/image";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import type { Metadata } from "next";
+import { Dumbbell, Sofa } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/feedback";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BOOKABLE, FACILITIES, participantRange } from "@/lib/catalog";
 
-const photoGalleries = {
-  gym: [
-    "/images/gym-1.PNG", "/images/gym-2.JPG", "/images/gym-3.JPG", "/images/gym-4.JPG", 
-    "/images/gym-5.jpg", "/images/gym-6.jpg", "/images/gym-7.jpg", "/images/gym-8.jpg"
-  ],
-  tennis: [
-    "/images/tennis-1.JPG", "/images/tennis-2.JPG", "/images/tennis-3.JPG", "/images/tennis-4.JPG"
-  ],
-  pickleball: [
-    "/images/pickleball-1.jpg", "/images/pickleball-2.jpg", "/images/pickleball-3.jpg", "/images/pickleball-4.jpg"
-  ]
-};
+export const metadata: Metadata = { title: "Facility info" };
+
+// Gym locations as previously published on this page. The booking prototype
+// listed "Block 1 Gym" and "Block 2 Gym" instead; confirm with FR Sports.
+const GYMS = ["BH-1 Gym", "BH-2 Gym", "Girls Hostel Gym"];
+
+const GALLERY_TABS = [...BOOKABLE, "gym"] as const;
 
 export default function AccessPage() {
-  const [activeGallery, setActiveGallery] = useState<"gym" | "tennis" | "pickleball">("gym");
-  
-  const gyms = ["BH-1 Gym", "BH-2 Gym", "Girls Hostel Gym"];
-  const recRooms = [
-    "Block 1 Recreation Room", "Block 2 Recreation Room", 
-    "Block 3 Recreation Room", "Block 4 Recreation Room",
-    "Block 5 Recreation Room", "Block 6 Recreation Room",
-    "Block 7 Recreation Room", "Block 8 Recreation Room"
-  ];
-
   return (
-    <div className="container mx-auto px-4 py-10 max-w-6xl">
-      <div className="mb-6">
-        <div className="text-[10px] font-bold tracking-widest text-primary uppercase mb-2">
-          UNIFIED FACILITIES
+    <div className="container max-w-5xl py-6 sm:py-10">
+      <PageHeader title="Facility info" description="Rules, equipment and photos for every sports facility on campus." />
+
+      <section aria-labelledby="bookable-title">
+        <h2 id="bookable-title" className="sr-only">
+          Bookable facilities
+        </h2>
+        <div className="grid gap-4 md:grid-cols-3">
+          {BOOKABLE.map((code) => {
+            const f = FACILITIES[code];
+            const { min, max } = participantRange(code);
+            return (
+              <Card key={code} className="flex flex-col">
+                <CardHeader>
+                  <CardTitle>{f.rule.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {f.rule.resources.join(" · ")} · {min}–{max} players
+                  </p>
+                </CardHeader>
+                <CardContent className="flex flex-1 flex-col gap-4 text-sm">
+                  <div>
+                    <h3 className="font-semibold">Rules</h3>
+                    <ul className="mt-1.5 list-disc space-y-1 pl-5">
+                      {f.rules.map((r) => (
+                        <li key={r}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Equipment</h3>
+                    <ul className="mt-1.5 list-disc space-y-1 pl-5">
+                      {f.equipment.map((e) => (
+                        <li key={e}>{e}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <Link href={`/book?sport=${code}`} className={buttonVariants({ variant: "outline", className: "mt-auto" })}>
+                    Book {f.rule.name.toLowerCase()}
+                  </Link>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
-        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground mb-2">
-          Facility access
-        </h1>
-        <p className="text-muted-foreground">
-          Explore campus facilities, view live occupancy, and discover the exact rules and equipment available.
-        </p>
-      </div>
-      
-      <div className="flex overflow-x-auto gap-2 pb-2 mb-10 no-scrollbar whitespace-nowrap border-b border-border">
-        <button className="flex-shrink-0 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-t-md shadow-sm">
-          Facilities & Gallery
-        </button>
-        <button className="flex-shrink-0 px-4 py-2 text-muted-foreground hover:bg-secondary/50 text-sm font-medium rounded-t-md transition-colors">
-          My sessions
-        </button>
-        <button className="flex-shrink-0 px-4 py-2 text-muted-foreground hover:bg-secondary/50 text-sm font-medium rounded-t-md transition-colors">
-          Player groups
-        </button>
-        <button className="flex-shrink-0 px-4 py-2 text-muted-foreground hover:bg-secondary/50 text-sm font-medium rounded-t-md transition-colors">
-          Reports
-        </button>
-      </div>
+      </section>
 
-      <div className="space-y-16">
-        {/* Visual Showcase Section */}
-        <section className="bg-secondary/20 p-6 md:p-8 rounded-2xl border border-border/50">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground">Campus Showcase</h2>
-              <p className="text-sm text-muted-foreground mt-1">Take a digital tour of our premium sports infrastructure.</p>
-            </div>
-            
-            {/* Gallery Selector */}
-            <div className="flex bg-background rounded-lg p-1 border shadow-sm w-fit">
-              <button 
-                onClick={() => setActiveGallery("gym")}
-                className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${activeGallery === "gym" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                Gyms
-              </button>
-              <button 
-                onClick={() => setActiveGallery("tennis")}
-                className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${activeGallery === "tennis" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                Tennis
-              </button>
-              <button 
-                onClick={() => setActiveGallery("pickleball")}
-                className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${activeGallery === "pickleball" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                Pickleball
-              </button>
-            </div>
-          </div>
+      <section aria-labelledby="other-title" className="mt-10">
+        <h2 id="other-title" className="text-xl font-bold tracking-tight">
+          Gyms and recreation rooms
+        </h2>
+        <p className="mt-1 text-muted-foreground">These are not booked through this site.</p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader className="flex-row items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-soft text-primary">
+                <Dumbbell className="h-5 w-5" aria-hidden />
+              </span>
+              <CardTitle>Gyms</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <p>{GYMS.join(" · ")}</p>
+              <p className="text-muted-foreground">
+                Access needs a time-limited entitlement from the sports office. Contact{" "}
+                <a className="font-semibold text-primary underline-offset-4 hover:underline" href="mailto:fr.sports@vitbhopal.ac.in">
+                  fr.sports@vitbhopal.ac.in
+                </a>
+                .
+              </p>
+              <ul className="list-disc space-y-1 pl-5">
+                {FACILITIES.gym.rules.map((r) => (
+                  <li key={r}>{r}</li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex-row items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-soft text-primary">
+                <Sofa className="h-5 w-5" aria-hidden />
+              </span>
+              <CardTitle>Recreation rooms</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
+              <p>Blocks 1 to 8 each have a recreation room. Walk in; no booking needed.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
 
-          {/* Dynamic Image Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 animate-in fade-in zoom-in-95 duration-500">
-            {photoGalleries[activeGallery].map((imgSrc, idx) => (
-              <div 
-                key={`${activeGallery}-${idx}`} 
-                className={`relative overflow-hidden rounded-xl bg-muted ${idx === 0 ? "col-span-2 row-span-2 aspect-square md:aspect-[4/3]" : "aspect-square"}`}
-              >
-                <Image 
-                  src={imgSrc}
-                  alt={`${activeGallery} facility photo ${idx + 1}`}
-                  fill
-                  priority={idx === 0} // Preload the large feature image instantly
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Instructs Next.js to compress aggressively
-                  className="object-cover hover:scale-110 transition-transform duration-700 ease-out"
-                />
+      <section aria-labelledby="photos-title" className="mt-10">
+        <h2 id="photos-title" className="text-xl font-bold tracking-tight">
+          Photos
+        </h2>
+        <Tabs defaultValue="pickleball" className="mt-4">
+          <TabsList aria-label="Facility photos" className="sm:w-fit">
+            {GALLERY_TABS.map((code) => (
+              <TabsTrigger key={code} value={code}>
+                {FACILITIES[code].rule.name}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {GALLERY_TABS.map((code) => (
+            <TabsContent key={code} value={code}>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
+                {FACILITIES[code].gallery.map((src, i) => (
+                  <div
+                    key={src}
+                    className={i === 0 ? "relative col-span-2 row-span-2 aspect-[4/3] overflow-hidden rounded-lg bg-surface-sunken" : "relative aspect-[4/3] overflow-hidden rounded-lg bg-surface-sunken"}
+                  >
+                    <Image
+                      src={src}
+                      alt={`${FACILITIES[code].rule.name} photo ${i + 1}`}
+                      fill
+                      sizes={i === 0 ? "(max-width: 768px) 100vw, 50vw" : "(max-width: 768px) 50vw, 25vw"}
+                      className="object-cover"
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Gyms Section */}
-        <section>
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1 mb-4">
-            <h2 className="text-xl font-medium text-foreground">Gyms</h2>
-            <span className="text-xs text-muted-foreground">Live occupancy · no booking limit</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {gyms.map((gym, idx) => (
-              <Card key={idx} className="shadow-sm border-border bg-card">
-                <CardHeader className="p-5 pb-3">
-                  <div className="flex justify-between items-start gap-4">
-                    <CardTitle className="text-base font-medium">{gym}</CardTitle>
-                    <span className="text-[10px] font-semibold tracking-wider bg-secondary text-secondary-foreground px-2 py-1 rounded uppercase">
-                      Inactive
-                    </span>
-                  </div>
-                  <CardDescription className="text-xs font-medium text-muted-foreground mt-1">
-                    0 currently inside · Hours pending
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-5 pt-0">
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Access requires a verified, time-limited entitlement. Contact FR Sports privately.
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-
-        {/* Recreation Rooms Section */}
-        <section>
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1 mb-4">
-            <h2 className="text-xl font-medium text-foreground">Recreation rooms</h2>
-            <span className="text-xs text-muted-foreground">Block 1 - 8 - walk in play</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {recRooms.map((room, idx) => (
-              <Card key={idx} className="shadow-sm border-border bg-card">
-                <CardHeader className="p-5 pb-3">
-                  <div className="flex justify-between items-start gap-4">
-                    <CardTitle className="text-base font-medium">{room}</CardTitle>
-                    <span className="text-[10px] font-semibold tracking-wider bg-secondary text-secondary-foreground px-2 py-1 rounded uppercase">
-                      Inactive
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-5 pt-0">
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Pilot access awaits verified student sign-in and the room QR.
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      </div>
+            </TabsContent>
+          ))}
+        </Tabs>
+      </section>
     </div>
   );
 }

@@ -1,32 +1,40 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
+import { BottomNav, SiteHeader } from "@/components/site-nav";
 import { Toaster } from "@/components/ui/toaster";
 
+const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], display: "swap" });
+
 export const metadata: Metadata = {
-  title: "VIT Bhopal Sports Facilities",
-  description: "Book slots for sports facilities at VIT Bhopal.",
+  title: { default: "VIT Bhopal Sports Facilities", template: "%s · VIT Bhopal Sports" },
+  description: "Book pickleball, tennis and turf slots at VIT Bhopal.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export const viewport: Viewport = {
+  themeColor: "#F7F5EE",
+  viewportFit: "cover",
+};
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-      </head>
-      <body className="font-sans antialiased" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-        <div className="flex min-h-screen flex-col">
-          <Navbar />
-          <main className="flex-1">{children}</main>
+    <html lang="en-IN">
+      <body className={`${jakarta.className} antialiased`}>
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[70] focus:rounded-lg focus:bg-surface focus:px-4 focus:py-3 focus:font-semibold focus:shadow-overlay"
+        >
+          Skip to content
+        </a>
+        <div className="flex min-h-dvh flex-col">
+          <SiteHeader />
+          <main id="main" className="flex-1">
+            {children}
+          </main>
           <Footer />
         </div>
+        <BottomNav />
         <Toaster />
       </body>
     </html>

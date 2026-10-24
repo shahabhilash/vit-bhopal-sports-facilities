@@ -1,44 +1,50 @@
 # VIT Bhopal Sports Facilities
 
-A frontend-only Next.js application for VIT Bhopal students to book sports facilities, check in/out, and track their activity.
+Booking portal for VIT Bhopal's pickleball courts, tennis courts and turf, with guard-verified QR check-in and a sports-office dashboard.
 
-## Features
-- **Book Sessions**: Multi-step booking flow for sports facilities.
-- **Check-in/Check-out**: Manage today's sessions.
-- **Access Info**: Real-time capacity and rules for all facilities.
-- **My Bookings**: View and cancel upcoming, past, or cancelled bookings.
-- **My Report**: Activity tracking with Recharts.
-- **Mock Data Layer**: Built with static typed JSON and `localStorage` to emulate a backend. No API routes or real database used.
+> **Status:** Phases 2 (foundations and security) and 3 (design system and mobile-first redesign) are complete. Booking screens still save to the browser only, and say so on screen, until the booking engine lands in Phase 4. See [docs/PHASE1_AUDIT.md](docs/PHASE1_AUDIT.md) for the plan.
 
-## Tech Stack
-- Next.js 14 (App Router)
-- React 18
-- TypeScript
-- Tailwind CSS
-- Shadcn UI (Custom minimal implementation)
-- Lucide React (Icons)
-- Recharts (Charts)
-- Next Themes (Dark Mode)
+## Layout
 
-## Setup Instructions
+```
+apps/web         Next.js 16 frontend (Vercel)
+apps/api         Hono API on Node 22 (Leapcell)
+packages/shared  Slots, facility rules, IST time helpers, email rule, error codes
+supabase/        SQL migrations, local CLI config, email template, RLS tests
+docs/            Audit, decisions, environment, deployment, roles
+```
 
-Since this project was built without `npx create-next-app` due to Node environment constraints during initialization, ensure you have Node.js installed to run it.
+## Getting started
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+Requires Node.js 22+.
 
-2. **Run the development server:**
-   ```bash
-   npm run dev
-   ```
+```bash
+npm install
+```
 
-3. Open [http://localhost:3000](http://localhost:3000) in your browser.
+```bash
+npm run dev:web
+```
 
-## Project Structure
-- `app/`: Next.js pages and layouts (Home, Book, Check-in, Access, Bookings, Report).
-- `components/`: Reusable UI components (Navbar, Footer, Button, Card).
-- `data/`: Mock data for user, facilities, and initial bookings.
-- `lib/`: Helper functions (localStorage booking management).
-- `types/`: TypeScript definitions.
+```bash
+npm run dev:api
+```
+
+Copy `apps/web/.env.example` to `apps/web/.env.local` and `apps/api/.env.example` to `apps/api/.env`, then fill in your Supabase project's values ([docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)). Without Supabase values the web app still runs, but sign-in is disabled.
+
+## Checks
+
+```bash
+npm run check
+```
+
+This runs type checks, ESLint, the shared and API unit tests, and the database tests. The database tests apply every migration to an in-memory Postgres (PGlite) and attack the RLS policies as anonymous, student, guard and admin users. No Docker is needed.
+
+## Documentation
+
+- [Phase 1 audit and plan](docs/PHASE1_AUDIT.md)
+- [Product and engineering decisions](docs/DECISIONS.md)
+- [Environment variables and Supabase settings](docs/ENVIRONMENT.md)
+- [Deployment](docs/DEPLOYMENT.md)
+- [Roles and admin bootstrap](docs/ROLES.md)
+- [Design system](docs/DESIGN_SYSTEM.md)

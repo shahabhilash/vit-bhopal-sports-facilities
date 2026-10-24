@@ -1,199 +1,253 @@
-"use client"
-import { useEffect, useState } from "react";
+"use client";
+import { useState } from "react";
 import Link from "next/link";
-import { getBookings, checkIn, checkOut } from "@/lib/bookings";
-import { Booking } from "@/types";
-import { sportsFacilities } from "@/data/facilities";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { CalendarPlus, ImagePlus, ThumbsUp, TriangleAlert, X } from "lucide-react";
+import { istDateString, slotStartInstant } from "@vitb/shared";
+import { BookingCard } from "@/components/booking/booking-card";
+import { PrototypeNotice } from "@/components/prototype-notice";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { EmptyState, PageHeader, Skeleton } from "@/components/ui/feedback";
+import { FieldError, FieldHint, Label, Textarea } from "@/components/ui/field";
+import { toast } from "@/components/ui/toaster";
+import { checkIn, checkOut, useBookings, type Booking } from "@/lib/bookings";
+import { formatLongDate, formatTime } from "@/lib/format";
+import { useNow } from "@/lib/use-now";
+import { cn } from "@/lib/utils";
 
-export default function CheckInPage() {
-  const [todayBookings, setTodayBookings] = useState<Booking[]>([]);
-  
-  // Checkout Modal State
-  const [checkoutBookingId, setCheckoutBookingId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState("");
-  const [raiseTicket, setRaiseTicket] = useState(false);
-  const [photoAttached, setPhotoAttached] = useState(false);
+const MINUTE = 60_000;
+// Decision Q8: check-in opens 10 minutes before the start and closes 15 minutes after.
+const OPENS_BEFORE = 10 * MINUTE;
+const CLOSES_AFTER = 15 * MINUTE;
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
-  useEffect(() => {
-    const fetchBookings = () => {
-      const all = getBookings();
-      const today = new Date().toISOString().split('T')[0];
-      setTodayBookings(all.filter(b => b.date === today && b.status !== 'Cancelled'));
-    };
-    fetchBookings();
-  }, []);
+function CheckoutDialog({ booking, onClose }: { booking: Booking | null; onClose: () => void }) {
+  const [rating, setRating] = useState<"good" | "issue" | null>(null);
+  const [description, setDescription] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [attempted, setAttempted] = useState(false);
 
-  const handleCheckIn = (id: string) => {
-    checkIn(id);
-    setTodayBookings(getBookings().filter(b => b.date === new Date().toISOString().split('T')[0] && b.status !== 'Cancelled'));
-  };
+  const descriptionError = rating === "issue" && description.trim().length < 10 ? "Describe the problem in at least 10 characters." : null;
+  const ratingError = rating === null ? "Choose how the session went." : null;
 
-  const submitCheckout = () => {
-    if (checkoutBookingId) {
-      checkOut(checkoutBookingId);
-      setTodayBookings(getBookings().filter(b => b.date === new Date().toISOString().split('T')[0] && b.status !== 'Cancelled'));
-      
-      // Reset state (In a real app with DB, we would save the feedback/ticket here)
-      setCheckoutBookingId(null);
-      setFeedback("");
-      setRaiseTicket(false);
-      setPhotoAttached(false);
+  function reset() {
+    setRating(null);
+    setDescription("");
+    setPhoto(null);
+    setPhotoError(null);
+    setAttempted(false);
+  }
+
+  function choosePhoto(file: File | undefined) {
+    setPhotoError(null);
+    if (!file) return;
+    if (!PHOTO_TYPES.includes(file.type)) {
+      setPhotoError("Use a JPEG, PNG, WebP or HEIC photo.");
+      return;
     }
-  };
+    if (file.size > MAX_PHOTO_BYTES) {
+      setPhotoError("The photo is larger than 5 MB. Choose a smaller one.");
+      return;
+    }
+    setPhoto(file);
+  }
+
+  function submit() {
+    setAttempted(true);
+    if (!booking || ratingError || descriptionError || photoError) return;
+    checkOut(booking.id, {
+      rating: rating!,
+      description: rating === "issue" ? description.trim() : undefined,
+      photoName: rating === "issue" ? photo?.name : undefined,
+    });
+    toast("success", "Checked out", rating === "issue" ? "Thanks. The sports office will review your report." : "Thanks for the feedback.");
+    reset();
+    onClose();
+  }
+
+  const choice = (value: "good" | "issue", Icon: typeof ThumbsUp, title: string, body: string) => (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={rating === value}
+      onClick={() => setRating(value)}
+      className={cn(
+        "flex flex-1 flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors",
+        rating === value ? "border-primary bg-brand-soft/60 ring-1 ring-primary" : "border-input bg-surface hover:bg-accent",
+      )}
+    >
+      <Icon className={cn("h-5 w-5", value === "good" ? "text-success" : "text-warning")} aria-hidden />
+      <span className="font-semibold">{title}</span>
+      <span className="text-xs text-muted-foreground">{body}</span>
+    </button>
+  );
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl relative">
-      <h1 className="text-3xl font-bold mb-8">Today's Sessions</h1>
-      
-      {todayBookings.length === 0 ? (
-        <Card className="text-center py-12">
-          <CardContent>
-            <p className="text-muted-foreground">You have no bookings for today.</p>
-            <Button asChild className="mt-4" variant="outline">
-              <Link href="/#facilities">Book a session</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-6">
-          {todayBookings.map(booking => {
-            const facility = sportsFacilities.find(f => f.id === booking.facilityId);
-            return (
-               <Card key={booking.id} className="overflow-hidden">
-                <div className={`h-2 w-full ${booking.status === 'Completed' ? 'bg-muted' : booking.status === 'Checked in' ? 'bg-green-500' : 'bg-primary'}`} />
-                <div className="p-6 md:flex md:items-center md:justify-between">
-                  <div className="mb-4 md:mb-0">
-                    <h3 className="text-xl font-bold">{facility?.name} {booking.courtId ? `- ${booking.courtId}` : ''}</h3>
-                    <p className="text-muted-foreground">{booking.startTime} - {booking.endTime}</p>
-                    <div className="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-secondary text-secondary-foreground">
-                      {booking.status}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-4">
-                    {booking.status === 'Upcoming' && (
-                      <Button onClick={() => handleCheckIn(booking.id)} size="lg" className="w-full md:w-auto">
-                        Check In
-                      </Button>
-                    )}
-                    {booking.status === 'Checked in' && (
-                      <Button onClick={() => setCheckoutBookingId(booking.id)} variant="outline" size="lg" className="w-full md:w-auto border-green-500 text-green-600 hover:bg-green-50">
-                        Check Out
-                      </Button>
-                    )}
-                    {booking.status === 'Completed' && (
-                      <div className="text-sm text-muted-foreground">
-                        Session completed
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+    <Dialog
+      open={booking !== null}
+      onOpenChange={(open) => {
+        if (!open) {
+          reset();
+          onClose();
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Check out</DialogTitle>
+          <DialogDescription>How was your session? Reports go only to the sports office.</DialogDescription>
+        </DialogHeader>
+
+        <div role="radiogroup" aria-label="Session feedback" className="flex gap-3">
+          {choice("good", ThumbsUp, "All good", "No problems")}
+          {choice("issue", TriangleAlert, "Report an issue", "Broken or unsafe")}
         </div>
-      )}
+        {attempted && ratingError && <FieldError className="mt-2">{ratingError}</FieldError>}
 
-      {/* Checkout Feedback Modal */}
-      {checkoutBookingId && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <CardHeader>
-              <CardTitle>Session Feedback</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div>
-                <label className="text-sm font-medium text-foreground">How was your session?</label>
-                <textarea 
-                  className="w-full border rounded-md p-3 mt-2 min-h-[100px] text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" 
-                  placeholder="Tell us about your experience..."
-                  value={feedback}
-                  onChange={e => setFeedback(e.target.value)}
-                />
-              </div>
-              
-              <div className="flex items-center space-x-3 bg-secondary/30 p-3 rounded-md">
-                <input 
-                  type="checkbox" 
-                  id="ticket" 
-                  checked={raiseTicket}
-                  onChange={(e) => setRaiseTicket(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <label htmlFor="ticket" className="text-sm font-medium cursor-pointer select-none">
-                  Report broken equipment or facility issue
-                </label>
-              </div>
-
-              {raiseTicket && (
-                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center bg-secondary/10 transition-all">
-                  <input 
-                    type="file" 
-                    id="photo" 
-                    accept="image/*"
-                    className="hidden"
+        {rating === "issue" && (
+          <div className="mt-5 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="issue-description">What is wrong?</Label>
+              <Textarea
+                id="issue-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                maxLength={1000}
+                placeholder="e.g. The net on court 2 is torn near the left post."
+                aria-invalid={(attempted && !!descriptionError) || undefined}
+                aria-describedby={attempted && descriptionError ? "issue-description-error" : undefined}
+              />
+              {attempted && descriptionError && <FieldError id="issue-description-error">{descriptionError}</FieldError>}
+            </div>
+            <div className="space-y-2">
+              <span className="block text-sm font-semibold" id="photo-label">
+                Photo <span className="font-normal text-muted-foreground">(optional)</span>
+              </span>
+              {photo ? (
+                <div className="flex items-center justify-between gap-3 rounded-lg border bg-surface-sunken px-3 py-2 text-sm">
+                  <span className="truncate">{photo.name}</span>
+                  <Button variant="ghost" size="icon" aria-label="Remove photo" onClick={() => setPhoto(null)}>
+                    <X aria-hidden />
+                  </Button>
+                </div>
+              ) : (
+                <label className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-input text-sm font-semibold hover:bg-accent focus-within:ring-2 focus-within:ring-ring">
+                  <ImagePlus className="h-4 w-4" aria-hidden />
+                  Add a photo
+                  <input
+                    type="file"
+                    accept={PHOTO_TYPES.join(",")}
+                    className="sr-only"
+                    aria-labelledby="photo-label"
+                    aria-describedby="photo-hint"
                     onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        // SECURITY: Validate file size (max 5MB) to prevent Denial of Service via huge uploads
-                        if (file.size > 5 * 1024 * 1024) {
-                          alert("File is too large. Maximum allowed size is 5MB.");
-                          e.target.value = '';
-                          setPhotoAttached(false);
-                          return;
-                        }
-                        // SECURITY: Strictly validate MIME type to prevent malicious non-image files
-                        if (!file.type.startsWith('image/')) {
-                          alert("Security Error: Only image files are allowed.");
-                          e.target.value = '';
-                          setPhotoAttached(false);
-                          return;
-                        }
-                        setPhotoAttached(true);
-                      } else {
-                        setPhotoAttached(false);
-                      }
+                      choosePhoto(e.target.files?.[0]);
+                      e.target.value = "";
                     }}
                   />
-                  <label htmlFor="photo" className="cursor-pointer flex flex-col items-center">
-                    {photoAttached ? (
-                      <span className="text-sm font-bold text-green-600 bg-green-100 px-3 py-1 rounded-full">
-                        ✓ Photo successfully attached
-                      </span>
-                    ) : (
-                      <>
-                        <span className="text-sm text-primary font-bold">Click here to attach a photo</span>
-                        <span className="text-xs text-red-500 font-medium mt-2">
-                          * Photo evidence is compulsory to raise a ticket
-                        </span>
-                      </>
-                    )}
-                  </label>
-                </div>
+                </label>
               )}
+              <FieldHint id="photo-hint">JPEG, PNG, WebP or HEIC, up to 5 MB.</FieldHint>
+              {photoError && <FieldError>{photoError}</FieldError>}
+            </div>
+          </div>
+        )}
 
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <Button variant="ghost" onClick={() => {
-                  setCheckoutBookingId(null);
-                  setRaiseTicket(false);
-                  setPhotoAttached(false);
-                  setFeedback("");
-                }}>
-                  Cancel
-                </Button>
-                <Button 
-                  disabled={raiseTicket && !photoAttached}
-                  onClick={submitCheckout}
-                >
-                  Submit & Check Out
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+        <DialogFooter>
+          <Button variant="outline" size="lg" onClick={() => { reset(); onClose(); }}>
+            Not yet
+          </Button>
+          <Button size="lg" onClick={submit}>
+            Check out
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export default function CheckInPage() {
+  const bookings = useBookings();
+  const now = useNow();
+  const [checkingOut, setCheckingOut] = useState<Booking | null>(null);
+
+  if (!now) {
+    return (
+      <div className="container max-w-3xl py-6 sm:py-10">
+        <Skeleton className="h-9 w-40" />
+        <Skeleton className="mt-6 h-40 w-full" />
+      </div>
+    );
+  }
+
+  const today = istDateString(now);
+  const todays = bookings
+    .filter((b) => b.date === today && b.status !== "cancelled")
+    .sort((a, b) => a.slotIndex - b.slotIndex);
+
+  function action(b: Booking) {
+    const start = slotStartInstant(b.date, b.slotIndex).getTime();
+    if (b.status === "checked_in") {
+      return (
+        <Button size="lg" variant="outline" className="sm:w-auto" onClick={() => setCheckingOut(b)}>
+          Check out
+        </Button>
+      );
+    }
+    if (b.status === "completed") return <p className="text-sm text-muted-foreground">Session complete. Thanks for checking out.</p>;
+    if (now!.getTime() < start - OPENS_BEFORE) {
+      return <p className="text-sm text-muted-foreground">Check-in opens at {formatTime(new Date(start - OPENS_BEFORE))}.</p>;
+    }
+    if (now!.getTime() > start + CLOSES_AFTER) {
+      return <p className="text-sm font-medium text-destructive">Check-in closed 15 minutes after the start.</p>;
+    }
+    return (
+      <Button
+        size="lg"
+        onClick={() => {
+          checkIn(b.id);
+          toast("success", "Checked in", "Enjoy your game.");
+        }}
+      >
+        Check in
+      </Button>
+    );
+  }
+
+  return (
+    <div className="container max-w-3xl py-6 sm:py-10">
+      <PageHeader title="Check in" description={formatLongDate(today)} />
+      <PrototypeNotice />
+      <p className="mt-3 text-sm text-muted-foreground">
+        When booking goes live, the facility guard scans your booking pass to check you in. Until then you can try the flow here.
+      </p>
+
+      <div className="mt-6">
+        {todays.length === 0 ? (
+          <EmptyState
+            icon={CalendarPlus}
+            title="No bookings today"
+            description="Your bookings for today appear here, with check-in and check-out."
+            action={
+              <Link href="/book" className={buttonVariants({ size: "lg" })}>
+                Book a slot
+              </Link>
+            }
+          />
+        ) : (
+          <ul className="space-y-3">
+            {todays.map((b) => (
+              <li key={b.id}>
+                <BookingCard booking={b} actions={action(b)} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <CheckoutDialog booking={checkingOut} onClose={() => setCheckingOut(null)} />
     </div>
   );
 }
