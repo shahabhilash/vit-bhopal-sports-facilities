@@ -1,18 +1,18 @@
 "use client";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, CalendarCheck, CheckCircle2, ChevronRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarCheck, CheckCircle2, ChevronRight, RefreshCw } from "lucide-react";
 import { getSlot } from "@vitb/shared";
 import { CourtPicker, DateStrip, SlotGrid } from "@/components/booking/pickers";
 import { PlayerStepper, RosterInput, checkRoster } from "@/components/booking/participants";
-import { PrototypeNotice } from "@/components/prototype-notice";
 import { TurfReleaseInfo } from "@/components/turf-release-info";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Notice, Skeleton } from "@/components/ui/feedback";
+import { ApiRequestError, errorMessage, isApiConfigured } from "@/lib/api";
 import { bookableDates, slotStates } from "@/lib/availability";
-import { BookingRuleError, createBooking, useBookings, type Booking } from "@/lib/bookings";
+import { createBooking, useAvailability, useMyBookings, useProfile, useResources, type Booking } from "@/lib/bookings";
 import { BOOKABLE, FACILITIES, isBookable, participantRange, type BookableCode } from "@/lib/catalog";
 import { formatLongDate, slotLabel } from "@/lib/format";
 import { useSessionStatus } from "@/lib/supabase/session";
@@ -78,38 +78,72 @@ function SummaryRows({ items }: { items: [string, string | null][] }) {
   );
 }
 
+/** Explains a failed booking, including the specific players or fields to fix. */
+function BookingError({ error }: { error: unknown }) {
+  const details = error instanceof ApiRequestError ? (error.details as Record<string, string[]> | undefined) : undefined;
+  const lists: [string, string[] | undefined][] = [
+    ["Not registered on this site", details?.unregistered],
+    ["Not valid", details?.invalid],
+    ["Listed twice", details?.duplicates],
+  ];
+  return (
+    <Notice tone="danger" live className="mt-4" title={errorMessage(error)}>
+      {lists.map(([label, items]) =>
+        Array.isArray(items) && items.length > 0 ? (
+          <p key={label}>
+            {label}: <span className="font-mono">{items.join(", ")}</span>
+          </p>
+        ) : null,
+      )}
+      {error instanceof ApiRequestError && error.code === "PROFILE_INCOMPLETE" && (
+        <Link href="/account" className="font-semibold text-primary underline underline-offset-4">
+          Go to Account
+        </Link>
+      )}
+    </Notice>
+  );
+}
+
 function BookingForm({ code }: { code: BookableCode }) {
   const router = useRouter();
   const now = useNow();
-  const bookings = useBookings();
   const session = useSessionStatus();
   const facility = FACILITIES[code];
   const { min, max } = participantRange(code);
-  const resources = facility.rule.resources;
+  const resourceNames = facility.rule.resources;
   const isTurf = code === "turf";
 
-  const [resource, setResource] = useState(resources[0] ?? "");
+  const [resourceName, setResourceName] = useState(resourceNames[0] ?? "");
   const [pickedDate, setPickedDate] = useState<string | null>(null);
   const [slotIndex, setSlotIndex] = useState<number | null>(null);
   const [players, setPlayers] = useState(min);
   const [roster, setRoster] = useState("");
   const [reviewOpen, setReviewOpen] = useState(false);
   const [attempted, setAttempted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<unknown>(null);
   const [confirmed, setConfirmed] = useState<Booking | null>(null);
+  const idempotencyKey = useRef<string>("");
+
+  const resources = useResources();
+  const resourceId = resources.data?.find((r) => r.facility === code && r.name === resourceName)?.id ?? null;
 
   const dates = useMemo(() => (now ? bookableDates(code, now) : []), [code, now]);
   const firstOpen = dates.find((d) => !d.opensAt)?.date ?? null;
   const date = pickedDate && dates.some((d) => d.date === pickedDate && !d.opensAt) ? pickedDate : firstOpen;
+
+  const availability = useAvailability(code, dates[0]?.date ?? null, dates[dates.length - 1]?.date ?? null);
+  const myBookings = useMyBookings(session);
+  const profile = useProfile(isTurf ? session : "signed-out");
+
   const slots = useMemo(
-    () => (now && date ? slotStates(code, resource, date, bookings, now) : []),
-    [code, resource, date, bookings, now],
+    () => (now && date ? slotStates(code, resourceId, date, availability.data, myBookings.data, now) : []),
+    [code, resourceId, date, availability.data, myBookings.data, now],
   );
   const selectedSlot = slots.find((s) => s.slot.index === slotIndex && s.state.kind === "open") ? slotIndex : null;
   const rosterCheck = useMemo(() => checkRoster(roster, min, max), [roster, min, max]);
   const rosterOk = !isTurf || (!rosterCheck.countError && rosterCheck.invalid.length === 0 && rosterCheck.duplicates.length === 0);
   const playerCount = isTurf ? rosterCheck.regNos.length : players;
-
   const missing = [!date && "a day", !selectedSlot && "a time", !rosterOk && "a valid player list"].filter(Boolean) as string[];
 
   function openReview() {
@@ -120,25 +154,30 @@ function BookingForm({ code }: { code: BookableCode }) {
       router.push(`/login?next=${encodeURIComponent(`/book?sport=${code}`)}`);
       return;
     }
+    // One key per review: retries of this submission are recognised by the server.
+    idempotencyKey.current = crypto.randomUUID();
     setReviewOpen(true);
   }
 
-  function confirm() {
-    if (!date || !selectedSlot) return;
+  async function confirm() {
+    if (!date || !selectedSlot || !resourceId || submitting) return;
+    setSubmitting(true);
+    setError(null);
     try {
-      const booking = createBooking({
-        facility: code,
-        resource,
-        date,
-        slotIndex: selectedSlot,
-        participants: playerCount,
-        participantRegNos: isTurf ? rosterCheck.regNos : undefined,
-      });
+      const booking = await createBooking(
+        isTurf
+          ? { resourceId, date, slotIndex: selectedSlot, participantRegNos: rosterCheck.regNos }
+          : { resourceId, date, slotIndex: selectedSlot, participantCount: players },
+        idempotencyKey.current,
+      );
       setReviewOpen(false);
       setConfirmed(booking);
       window.scrollTo({ top: 0 });
     } catch (err) {
-      setError(err instanceof BookingRuleError ? err.message : "Something went wrong. Please try again.");
+      setError(err);
+      if (err instanceof ApiRequestError && err.code === "SLOT_TAKEN") setSlotIndex(null);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -148,9 +187,11 @@ function BookingForm({ code }: { code: BookableCode }) {
         <div className="rounded-xl border bg-surface p-6 text-center shadow-card">
           <CheckCircle2 className="mx-auto h-12 w-12 text-success" aria-hidden />
           <h1 className="mt-3 text-2xl font-bold" tabIndex={-1} ref={(el) => el?.focus()}>
-            Booking saved
+            You&apos;re booked
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Saved on this device. It does not reserve the slot yet.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Check in with the guard within 15 minutes of the start, or the slot is released.
+          </p>
           <div className="mt-5 text-left">
             <SummaryRows
               items={[
@@ -166,7 +207,16 @@ function BookingForm({ code }: { code: BookableCode }) {
               <CalendarCheck aria-hidden />
               My bookings
             </Link>
-            <Button variant="outline" size="lg" className="sm:flex-1" onClick={() => setConfirmed(null)}>
+            <Button
+              variant="outline"
+              size="lg"
+              className="sm:flex-1"
+              onClick={() => {
+                setConfirmed(null);
+                setSlotIndex(null);
+                setAttempted(false);
+              }}
+            >
               Book another
             </Button>
           </div>
@@ -176,11 +226,16 @@ function BookingForm({ code }: { code: BookableCode }) {
   }
 
   const summary: [string, string | null][] = [
-    ["Facility", resources.length > 1 ? `${facility.rule.name} · ${resource}` : facility.rule.name],
+    ["Facility", resourceNames.length > 1 ? `${facility.rule.name} · ${resourceName}` : facility.rule.name],
     ["Day", date ? formatLongDate(date) : null],
     ["Time", selectedSlot ? slotLabel(selectedSlot) : null],
     ["Players", playerCount ? String(playerCount) : null],
   ];
+  const loadError = resources.error ?? availability.error;
+  const retryLoad = () => {
+    void resources.refresh();
+    void availability.refresh();
+  };
 
   return (
     <div className="container pb-40 pt-4 sm:pt-8 md:pb-10">
@@ -192,15 +247,47 @@ function BookingForm({ code }: { code: BookableCode }) {
 
       <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_20rem]">
         <div className="min-w-0 space-y-8">
-          <PrototypeNotice />
+          {!isApiConfigured ? (
+            <Notice tone="warning" title="Booking is not available here yet">
+              This environment is not connected to the booking service.
+            </Notice>
+          ) : loadError ? (
+            <Notice tone="danger" title="Could not load open slots">
+              <p>{errorMessage(loadError)}</p>
+              <Button variant="outline" className="mt-2" onClick={retryLoad}>
+                <RefreshCw aria-hidden />
+                Try again
+              </Button>
+            </Notice>
+          ) : null}
+          {session === "signed-out" && (
+            <Notice tone="info">
+              You can look around now; you&apos;ll be asked to sign in with your college email before booking.
+            </Notice>
+          )}
+          {isTurf && session === "signed-in" && profile.data && !profile.data.regNo && (
+            <Notice tone="warning" title="Add your registration number first">
+              Turf bookings list every player by registration number, including you.{" "}
+              <Link href="/account" className="font-semibold text-primary underline underline-offset-4">
+                Go to Account
+              </Link>
+            </Notice>
+          )}
 
-          {resources.length > 1 && (
+          {resourceNames.length > 1 && (
             <Section id="court-label" step={1} title="Court">
-              <CourtPicker resources={resources} value={resource} onChange={setResource} />
+              <CourtPicker
+                resources={resourceNames}
+                value={resourceName}
+                onChange={(r) => {
+                  setResourceName(r);
+                  setSlotIndex(null);
+                }}
+              />
             </Section>
           )}
 
-          <Section id="day-label" step={resources.length > 1 ? 2 : 1} title="Day">
+          <Section id="day-label" step={resourceNames.length > 1 ? 2 : 1} title="Day">
             {isTurf && <TurfReleaseInfo />}
             {!now ? (
               <div className="flex gap-2">
@@ -213,15 +300,31 @@ function BookingForm({ code }: { code: BookableCode }) {
                 {isTurf ? "The next turf week opens on Friday at 12:00 PM." : "Today's slots are over. Check back tomorrow."}
               </Notice>
             ) : (
-              <DateStrip options={dates} value={date ?? ""} onChange={(d) => { setPickedDate(d); setSlotIndex(null); }} now={now} />
+              <DateStrip
+                options={dates}
+                value={date ?? ""}
+                onChange={(d) => {
+                  setPickedDate(d);
+                  setSlotIndex(null);
+                }}
+                now={now}
+              />
             )}
           </Section>
 
           <Section
             id="time-label"
-            step={resources.length > 1 ? 3 : 2}
+            step={resourceNames.length > 1 ? 3 : 2}
             title="Time"
-            aside={date && <span className="text-sm text-muted-foreground">{formatLongDate(date)}</span>}
+            aside={
+              availability.refreshing ? (
+                <span className="text-sm text-muted-foreground" aria-live="polite">
+                  Updating…
+                </span>
+              ) : date ? (
+                <span className="text-sm text-muted-foreground">{formatLongDate(date)}</span>
+              ) : null
+            }
           >
             {!now ? (
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
@@ -229,13 +332,17 @@ function BookingForm({ code }: { code: BookableCode }) {
                   <Skeleton key={i} className="h-[3.75rem]" />
                 ))}
               </div>
-            ) : date ? (
+            ) : date && isApiConfigured && !loadError ? (
               <SlotGrid slots={slots} value={selectedSlot} onChange={setSlotIndex} />
             ) : null}
-            {attempted && !selectedSlot && date && <p role="alert" className="text-sm font-medium text-destructive">Choose a time.</p>}
+            {attempted && !selectedSlot && date && (
+              <p role="alert" className="text-sm font-medium text-destructive">
+                Choose a time.
+              </p>
+            )}
           </Section>
 
-          <Section id="players-label" step={resources.length > 1 ? 4 : 3} title="Players">
+          <Section id="players-label" step={resourceNames.length > 1 ? 4 : 3} title="Players">
             {isTurf ? (
               <RosterInput value={roster} onChange={setRoster} check={rosterCheck} showErrors={attempted} />
             ) : (
@@ -244,71 +351,73 @@ function BookingForm({ code }: { code: BookableCode }) {
           </Section>
         </div>
 
-        {/* Desktop summary */}
         <aside className="hidden lg:block">
           <div className="sticky top-24 rounded-xl border bg-surface p-5 shadow-card">
             <h2 className="font-semibold">Your booking</h2>
             <div className="mt-2">
               <SummaryRows items={summary} />
             </div>
-            <Button size="lg" className="mt-4 w-full" onClick={openReview}>
+            <Button size="lg" className="mt-4 w-full" onClick={openReview} disabled={!isApiConfigured}>
               Review booking
               <ArrowRight aria-hidden />
             </Button>
             {attempted && missing.length > 0 && (
-              <p role="alert" className="mt-2 text-sm text-destructive">Choose {missing.join(", ")}.</p>
+              <p role="alert" className="mt-2 text-sm text-destructive">
+                Choose {missing.join(", ")}.
+              </p>
             )}
           </div>
         </aside>
       </div>
 
-      {/* Mobile summary bar, above the bottom navigation */}
       <div className="fixed inset-x-0 bottom-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom))] z-30 border-t bg-surface/95 px-4 py-3 shadow-raised backdrop-blur md:bottom-0 lg:hidden">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
           <div className="min-w-0 flex-1 text-sm">
             <p className="truncate font-semibold">
-              {date && selectedSlot ? `${formatLongDate(date).split(",")[0]}, ${getSlot(selectedSlot)?.label.split(" – ")[0]}` : date ? "Choose a time" : "Choose a day and time"}
+              {date && selectedSlot
+                ? `${formatLongDate(date).split(",")[0]}, ${getSlot(selectedSlot)?.label.split(" – ")[0]}`
+                : date
+                  ? "Choose a time"
+                  : "Choose a day and time"}
             </p>
             <p className="truncate text-muted-foreground">
-              {resources.length > 1 ? `${resource} · ` : ""}
+              {resourceNames.length > 1 ? `${resourceName} · ` : ""}
               {playerCount} player{playerCount === 1 ? "" : "s"}
             </p>
           </div>
-          <Button size="lg" onClick={openReview}>
+          <Button size="lg" onClick={openReview} disabled={!isApiConfigured}>
             Review
           </Button>
         </div>
         {attempted && missing.length > 0 && (
-          <p role="alert" className="mx-auto mt-1 max-w-2xl text-sm text-destructive">Choose {missing.join(", ")}.</p>
+          <p role="alert" className="mx-auto mt-1 max-w-2xl text-sm text-destructive">
+            Choose {missing.join(", ")}.
+          </p>
         )}
       </div>
 
-      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+      <Dialog open={reviewOpen} onOpenChange={(open) => !submitting && setReviewOpen(open)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm your booking</DialogTitle>
             <DialogDescription>Check the details before you confirm.</DialogDescription>
           </DialogHeader>
           <SummaryRows items={summary} />
-          {isTurf && (
-            <p className="mt-3 break-words text-xs text-muted-foreground">Players: {rosterCheck.regNos.join(", ")}</p>
-          )}
+          {isTurf && <p className="mt-3 break-words text-xs text-muted-foreground">Players: {rosterCheck.regNos.join(", ")}</p>}
           <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
             <li>Check in with the guard within 15 minutes of the start, or the slot is released.</li>
             <li>Free cancellation until 1 hour before the start.</li>
           </ul>
-          {error && (
-            <Notice tone="danger" live className="mt-4">
-              {error}
-            </Notice>
-          )}
+          {error !== null && <BookingError error={error} />}
           <DialogFooter>
-            <Button variant="outline" size="lg" onClick={() => setReviewOpen(false)}>
+            <Button variant="outline" size="lg" onClick={() => setReviewOpen(false)} disabled={submitting}>
               Go back
             </Button>
-            <Button size="lg" onClick={confirm}>
-              Confirm booking
-            </Button>
+            {!(error instanceof ApiRequestError && error.code === "SLOT_TAKEN") && (
+              <Button size="lg" onClick={confirm} disabled={submitting || !resourceId}>
+                {submitting ? "Booking…" : error !== null ? "Try again" : "Confirm booking"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -325,7 +434,13 @@ function BookPageInner() {
 
 export default function BookPage() {
   return (
-    <Suspense fallback={<div className="container py-10"><Skeleton className="h-8 w-48" /></div>}>
+    <Suspense
+      fallback={
+        <div className="container py-10">
+          <Skeleton className="h-8 w-48" />
+        </div>
+      }
+    >
       <BookPageInner />
     </Suspense>
   );

@@ -2,14 +2,14 @@ import { serve } from "@hono/node-server";
 import { createApp } from "./app";
 import { loadConfig } from "./config";
 import { createTokenVerifier } from "./lib/auth";
-import { createSupabaseDataSource } from "./lib/data";
+import { createSupabaseDb } from "./lib/data";
 
 const config = loadConfig();
 
 const app = createApp({
   config,
   verifyToken: createTokenVerifier(config),
-  data: createSupabaseDataSource(config),
+  db: createSupabaseDb(config),
 });
 
 const server = serve({ fetch: app.fetch, port: config.PORT, hostname: "0.0.0.0" }, (info) => {

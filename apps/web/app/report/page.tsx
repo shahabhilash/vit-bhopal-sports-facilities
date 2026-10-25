@@ -2,11 +2,11 @@
 import Link from "next/link";
 import { ArrowLeft, BarChart3 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { PrototypeNotice } from "@/components/prototype-notice";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState, PageHeader } from "@/components/ui/feedback";
-import { useBookings } from "@/lib/bookings";
+import { useMyBookings } from "@/lib/bookings";
+import { useSessionStatus } from "@/lib/supabase/session";
 import { BOOKABLE, FACILITIES } from "@/lib/catalog";
 
 function Stat({ label, value }: { label: string; value: string | number }) {
@@ -19,7 +19,8 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 }
 
 export default function ReportPage() {
-  const bookings = useBookings();
+  const session = useSessionStatus();
+  const bookings = useMyBookings(session).data ?? [];
   const completed = bookings.filter((b) => b.status === "completed");
   const cancelled = bookings.filter((b) => b.status === "cancelled").length;
 
@@ -35,15 +36,14 @@ export default function ReportPage() {
         <ArrowLeft className="h-4 w-4" aria-hidden />
         My bookings
       </Link>
-      <PageHeader title="Your activity" description="Sessions you checked out of. Each slot is one hour." />
-      <PrototypeNotice />
+      <PageHeader title="Your activity" description="Completed sessions you booked or played in. Each slot is one hour." />
 
       {completed.length === 0 ? (
         <EmptyState
           className="mt-6"
           icon={BarChart3}
           title="No completed sessions yet"
-          description="After you check out of a session, it is counted here."
+          description="Sessions are counted here once they are completed."
           action={
             <Link href="/book" className={buttonVariants({ size: "lg" })}>
               Book a slot

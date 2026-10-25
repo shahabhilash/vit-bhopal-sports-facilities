@@ -3,7 +3,6 @@ import { cors } from "hono/cors";
 import { ApiError, type Role } from "@vitb/shared";
 import type { Config } from "../config";
 import type { AuthUser, TokenVerifier } from "../lib/auth";
-import type { DataSource } from "../lib/data";
 
 export type AppEnv = {
   Variables: {
@@ -58,7 +57,8 @@ export function securityHeaders(production: boolean): MiddlewareHandler<AppEnv> 
     c.header("X-Content-Type-Options", "nosniff");
     c.header("Referrer-Policy", "no-referrer");
     c.header("Cross-Origin-Resource-Policy", "same-site");
-    c.header("Cache-Control", "no-store");
+    // Routes may opt in to caching (public configuration); everything else is no-store.
+    if (!c.res.headers.has("Cache-Control")) c.header("Cache-Control", "no-store");
     if (production) c.header("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
   };
 }
@@ -136,8 +136,8 @@ export function requireAuth(verify: TokenVerifier): MiddlewareHandler<AppEnv> {
   };
 }
 
-/** Checks roles against the database (via RLS), with a short per-user cache. */
-export function createRoleGuard(data: DataSource, ttlMs = 30_000) {
+/** Checks roles from the database (read as the user, via RLS), with a short per-user cache. */
+export function createRoleGuard(getRoles: (user: AuthUser) => Promise<Role[]>, ttlMs = 30_000) {
   const cache = new Map<string, { roles: Role[]; expiresAt: number }>();
 
   return (...allowed: Role[]): MiddlewareHandler<AppEnv> =>
@@ -146,7 +146,7 @@ export function createRoleGuard(data: DataSource, ttlMs = 30_000) {
       const now = Date.now();
       let cached = cache.get(user.id);
       if (!cached || cached.expiresAt <= now) {
-        cached = { roles: await data.getRoles(user), expiresAt: now + ttlMs };
+        cached = { roles: await getRoles(user), expiresAt: now + ttlMs };
         cache.set(user.id, cached);
       }
       if (!cached.roles.some((r) => allowed.includes(r))) {

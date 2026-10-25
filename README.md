@@ -2,7 +2,7 @@
 
 Booking portal for VIT Bhopal's pickleball courts, tennis courts and turf, with guard-verified QR check-in and a sports-office dashboard.
 
-> **Status:** Phases 2 (foundations and security) and 3 (design system and mobile-first redesign) are complete. Booking screens still save to the browser only, and say so on screen, until the booking engine lands in Phase 4. See [docs/PHASE1_AUDIT.md](docs/PHASE1_AUDIT.md) for the plan.
+> **Status:** Phases 2–4 are complete: sign-in and roles, the mobile-first redesign, and the booking engine (database-enforced bookings, availability, cancellation and turf rosters). Guard QR check-in and the waiting list are next (Phase 5). See [docs/PHASE1_AUDIT.md](docs/PHASE1_AUDIT.md) for the plan.
 
 ## Layout
 
@@ -30,7 +30,13 @@ npm run dev:web
 npm run dev:api
 ```
 
-Copy `apps/web/.env.example` to `apps/web/.env.local` and `apps/api/.env.example` to `apps/api/.env`, then fill in your Supabase project's values ([docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)). Without Supabase values the web app still runs, but sign-in is disabled.
+To try the booking screens without a Supabase project, run the local demo API (an in-memory Postgres with every migration and a few fake demo bookings) and point the web app at it with `NEXT_PUBLIC_API_URL=http://localhost:8787`:
+
+```bash
+npm run dev:local -w @vitb/api
+```
+
+Signing in still needs a real Supabase project. Copy `apps/web/.env.example` to `apps/web/.env.local` and `apps/api/.env.example` to `apps/api/.env`, then fill in your Supabase project's values ([docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)). Without Supabase values the web app still runs, but sign-in is disabled.
 
 ## Checks
 

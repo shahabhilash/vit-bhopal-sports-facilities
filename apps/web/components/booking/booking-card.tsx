@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CalendarDays, CheckCircle2, CircleDot, Clock, LogIn, Users, XCircle } from "lucide-react";
+import { CalendarDays, CheckCircle2, CircleDot, Clock, LogIn, TimerOff, Users, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Booking, BookingStatus } from "@/lib/bookings";
 import { FACILITIES } from "@/lib/catalog";
@@ -10,6 +10,7 @@ const STATUS: Record<BookingStatus, { label: string; tone: "brand" | "success" |
   checked_in: { label: "Checked in", tone: "success", icon: LogIn },
   completed: { label: "Completed", tone: "neutral", icon: CheckCircle2 },
   cancelled: { label: "Cancelled", tone: "danger", icon: XCircle },
+  no_show: { label: "Missed", tone: "danger", icon: TimerOff },
 };
 
 export function StatusBadge({ status }: { status: BookingStatus }) {
@@ -50,6 +51,7 @@ export function BookingCard({ booking, actions }: { booking: Booking; actions?: 
           <Users className="h-4 w-4 text-muted-foreground" aria-hidden />
           <dd>
             {booking.participants} player{booking.participants === 1 ? "" : "s"}
+            {!booking.isOwner && <span className="text-muted-foreground"> · you are listed as a player</span>}
           </dd>
         </div>
       </dl>

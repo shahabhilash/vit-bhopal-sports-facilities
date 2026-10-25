@@ -5,7 +5,7 @@ import type { ApiErrorBody, Role } from "@vitb/shared";
 import { createApp } from "../src/app";
 import { loadConfig, type Config } from "../src/config";
 import { createTokenVerifier } from "../src/lib/auth";
-import type { DataSource } from "../src/lib/data";
+import type { Db } from "../src/lib/data";
 import { type AppEnv, createRoleGuard, requireAuth } from "../src/middleware";
 
 const SUPABASE_URL = "https://project-ref.supabase.co";
@@ -50,23 +50,26 @@ async function token(claims: Record<string, unknown> = {}, opts: { key?: CryptoK
     .sign(opts.key ?? privateKey);
 }
 
-function fakeData(roles: Role[] = ["student"]): DataSource & { roleCalls: number } {
-  const data = {
-    roleCalls: 0,
-    async getProfile() {
-      return { id: USER_ID, email: "alice.23bce10001@vitbhopal.ac.in", fullName: "Alice", regNo: "23BCE10001" };
-    },
-    async getRoles() {
-      data.roleCalls += 1;
-      return roles;
+/** Stand-in database: answers my_profile, records every call. */
+function fakeDb(roles: Role[] = ["student"]): Db & { calls: string[]; fail?: Error } {
+  const db = {
+    calls: [] as string[],
+    fail: undefined as Error | undefined,
+    async rpc<T>(fn: string): Promise<T> {
+      db.calls.push(fn);
+      if (db.fail) throw db.fail;
+      if (fn === "my_profile") {
+        return { id: USER_ID, email: "alice.23bce10001@vitbhopal.ac.in", fullName: "Alice", regNo: "23BCE10001", roles } as T;
+      }
+      throw new Error(`unexpected rpc ${fn}`);
     },
   };
-  return data;
+  return db;
 }
 
-function makeApp(env: Record<string, string> = {}, data: DataSource = fakeData()) {
+function makeApp(env: Record<string, string> = {}, db: Db = fakeDb()) {
   const config: Config = loadConfig(baseEnv(env));
-  return createApp({ config, verifyToken: createTokenVerifier(config, jwks), data });
+  return createApp({ config, verifyToken: createTokenVerifier(config, jwks), db });
 }
 
 describe("configuration", () => {
@@ -211,13 +214,22 @@ describe("authentication", () => {
 
 describe("authorization", () => {
   function guarded(roles: Role[]) {
-    const data = fakeData(roles);
+    let roleCalls = 0;
+    const data = {
+      get roleCalls() {
+        return roleCalls;
+      },
+      getRoles: async () => {
+        roleCalls += 1;
+        return roles;
+      },
+    };
     const config = loadConfig(baseEnv());
     const app = new Hono<AppEnv>();
     app.onError((err, c) => c.json({ code: (err as { code?: string }).code }, (err as { status?: number }).status as 403));
     app.use("*", requireAuth(createTokenVerifier(config, jwks)));
-    app.get("/admin", createRoleGuard(data)("sports_admin"), (c) => c.text("ok"));
-    app.get("/scan", createRoleGuard(data)("guard", "sports_admin"), (c) => c.text("ok"));
+    app.get("/admin", createRoleGuard(data.getRoles)("sports_admin"), (c) => c.text("ok"));
+    app.get("/scan", createRoleGuard(data.getRoles)("guard", "sports_admin"), (c) => c.text("ok"));
     return { app, data };
   }
 
@@ -272,11 +284,9 @@ describe("abuse protection and error format", () => {
   });
 
   it("hides internal errors behind a generic 500", async () => {
-    const data = fakeData();
-    data.getProfile = async () => {
-      throw new Error("connection to 10.0.0.5 failed: password authentication failed");
-    };
-    const res = await makeApp({}, data).request("/v1/me", { headers: { Authorization: `Bearer ${await token()}` } });
+    const db = fakeDb();
+    db.fail = new Error("connection to 10.0.0.5 failed: password authentication failed");
+    const res = await makeApp({}, db).request("/v1/me", { headers: { Authorization: `Bearer ${await token()}` } });
     expect(res.status).toBe(500);
     const text = await res.text();
     expect(text).not.toContain("10.0.0.5");

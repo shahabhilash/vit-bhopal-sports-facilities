@@ -5,30 +5,51 @@ import { apiUrl } from "./supabase/env";
 
 export class ApiRequestError extends Error {
   constructor(
-    readonly code: ErrorCode | "NETWORK",
+    readonly code: ErrorCode | "NETWORK" | "NOT_CONFIGURED",
     message: string,
     readonly status: number,
+    readonly details?: unknown,
     readonly requestId?: string,
   ) {
     super(message);
   }
 }
 
-/** Calls the Leapcell API with the current Supabase access token. */
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const supabase = getSupabaseBrowserClient();
-  const token = (await supabase?.auth.getSession())?.data.session?.access_token;
-  if (!apiUrl || !token) {
-    throw new ApiRequestError("UNAUTHENTICATED", "Sign in to continue.", 401);
+export const isApiConfigured = Boolean(apiUrl);
+
+interface ApiOptions {
+  method?: "GET" | "POST" | "PATCH";
+  body?: unknown;
+  /** Send the signed-in user's access token. */
+  auth?: boolean;
+  idempotencyKey?: string;
+  signal?: AbortSignal;
+}
+
+/** Calls the booking API. Throws ApiRequestError with the server's code and message. */
+export async function apiFetch<T>(path: string, opts: ApiOptions = {}): Promise<T> {
+  if (!apiUrl) {
+    throw new ApiRequestError("NOT_CONFIGURED", "Booking is not available in this environment yet.", 0);
+  }
+  const headers: Record<string, string> = {};
+  if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+  if (opts.idempotencyKey) headers["Idempotency-Key"] = opts.idempotencyKey;
+  if (opts.auth) {
+    const token = (await getSupabaseBrowserClient()?.auth.getSession())?.data.session?.access_token;
+    if (!token) throw new ApiRequestError("UNAUTHENTICATED", "Sign in to continue.", 401);
+    headers.Authorization = `Bearer ${token}`;
   }
 
   let res: Response;
   try {
     res = await fetch(`${apiUrl}${path}`, {
-      ...init,
-      headers: { ...init.headers, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      method: opts.method ?? "GET",
+      headers,
+      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      signal: opts.signal,
     });
-  } catch {
+  } catch (err) {
+    if ((err as Error).name === "AbortError") throw err;
     throw new ApiRequestError("NETWORK", "Could not reach the server. Check your connection and try again.", 0);
   }
 
@@ -38,8 +59,13 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       body?.error.code ?? "INTERNAL",
       body?.error.message ?? "Something went wrong. Please try again.",
       res.status,
+      body?.error.details,
       body?.error.requestId,
     );
   }
   return (await res.json()) as T;
+}
+
+export function errorMessage(err: unknown): string {
+  return err instanceof ApiRequestError ? err.message : "Something went wrong. Please try again.";
 }

@@ -322,7 +322,8 @@ describe("schema-wide guarantees", () => {
     expect(rows.length).toBeGreaterThan(0);
     for (const fn of rows) {
       expect(fn.config, fn.proname).toContain('search_path=""');
-      expect(fn.anon_exec, fn.proname).toBe(false);
+      // get_availability is deliberately public: it returns only taken/blocked slots.
+      expect(fn.anon_exec, fn.proname).toBe(fn.proname === "get_availability");
     }
   });
 });
