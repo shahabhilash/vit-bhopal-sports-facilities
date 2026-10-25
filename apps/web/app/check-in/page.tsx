@@ -1,8 +1,11 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
-import { CalendarPlus, RefreshCw } from "lucide-react";
+import { CalendarPlus, LogOut, QrCode, RefreshCw } from "lucide-react";
 import { istDateString } from "@vitb/shared";
 import { BookingCard } from "@/components/booking/booking-card";
+import { CheckoutDialog } from "@/components/booking/checkout-dialog";
+import { PassDialog } from "@/components/booking/pass-dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState, Notice, PageHeader, Skeleton } from "@/components/ui/feedback";
 import { errorMessage } from "@/lib/api";
@@ -40,6 +43,28 @@ export default function CheckInPage() {
   const session = useSessionStatus();
   const { data: bookings, error, loading, refresh } = useMyBookings(session);
   const now = useNow();
+  const [showPass, setShowPass] = useState<Booking | null>(null);
+  const [checkingOut, setCheckingOut] = useState<Booking | null>(null);
+
+  const actions = (b: Booking, at: Date) => (
+    <div className="flex w-full flex-col gap-3">
+      {windowText(b, at)}
+      <div className="flex flex-col gap-2 sm:flex-row">
+        {b.status === "confirmed" && new Date(b.startsAt).getTime() + CLOSES_AFTER >= at.getTime() && (
+          <Button size="lg" onClick={() => setShowPass(b)}>
+            <QrCode aria-hidden />
+            Show pass
+          </Button>
+        )}
+        {b.status === "checked_in" && b.isOwner && (
+          <Button size="lg" variant="outline" onClick={() => setCheckingOut(b)}>
+            <LogOut aria-hidden />
+            Check out
+          </Button>
+        )}
+      </div>
+    </div>
+  );
 
   const today = now ? istDateString(now) : null;
   const todays = (bookings ?? [])
@@ -50,8 +75,8 @@ export default function CheckInPage() {
     <div className="container max-w-3xl py-6 sm:py-10">
       <PageHeader title="Check in" description={today ? formatLongDate(today) : undefined} />
       <Notice tone="info" title="How check-in works">
-        The facility guard checks you in at the court. Arrive within 15 minutes of the start, or your slot is released to
-        other students. Booking passes with a QR code are coming next.
+        Open your pass and show it to the facility guard, from 10 minutes before the start. If nobody checks in within 15
+        minutes of the start, the slot is released to other students.
       </Notice>
 
       <div className="mt-6">
@@ -82,12 +107,14 @@ export default function CheckInPage() {
           <ul className="space-y-3">
             {todays.map((b) => (
               <li key={b.id}>
-                <BookingCard booking={b} actions={windowText(b, now)} />
+                <BookingCard booking={b} actions={actions(b, now)} />
               </li>
             ))}
           </ul>
         )}
       </div>
+      <PassDialog booking={showPass} onClose={() => setShowPass(null)} />
+      <CheckoutDialog booking={checkingOut} onClose={() => setCheckingOut(null)} />
     </div>
   );
 }

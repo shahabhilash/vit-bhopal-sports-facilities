@@ -1,15 +1,17 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { BarChart3, CalendarPlus, CalendarX2, History, RefreshCw } from "lucide-react";
+import { BarChart3, CalendarPlus, CalendarX2, History, QrCode, RefreshCw } from "lucide-react";
 import { BookingCard } from "@/components/booking/booking-card";
+import { PassDialog } from "@/components/booking/pass-dialog";
+import { WaitlistPanel } from "@/components/booking/waitlist-panel";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState, Notice, PageHeader, Skeleton } from "@/components/ui/feedback";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toaster";
 import { errorMessage } from "@/lib/api";
-import { cancelBooking, isActive, useMyBookings, type Booking } from "@/lib/bookings";
+import { cancelBooking, isActive, useMyBookings, useWaitlist, type Booking } from "@/lib/bookings";
 import { FACILITIES } from "@/lib/catalog";
 import { formatLongDate, slotLabel } from "@/lib/format";
 import { useSessionStatus } from "@/lib/supabase/session";
@@ -24,6 +26,8 @@ export default function MyBookingsPage() {
   const { data: bookings, error, loading, refresh } = useMyBookings(session);
   const now = useNow();
   const [toCancel, setToCancel] = useState<Booking | null>(null);
+  const [showPass, setShowPass] = useState<Booking | null>(null);
+  const waitlist = useWaitlist(session);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
@@ -111,16 +115,23 @@ export default function MyBookingsPage() {
             <BookingCard
               booking={b}
               actions={
-                withActions &&
-                b.isOwner &&
-                b.status === "confirmed" &&
-                (canCancel(b) ? (
-                  <Button variant="outline" className="text-destructive" onClick={() => setToCancel(b)}>
-                    Cancel booking
-                  </Button>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Cancellation closed 1 hour before the start.</p>
-                ))
+                withActions && (
+                  <>
+                    <Button variant="outline" onClick={() => setShowPass(b)}>
+                      <QrCode aria-hidden />
+                      Show pass
+                    </Button>
+                    {b.isOwner &&
+                      b.status === "confirmed" &&
+                      (canCancel(b) ? (
+                        <Button variant="ghost" className="text-destructive" onClick={() => setToCancel(b)}>
+                          Cancel booking
+                        </Button>
+                      ) : (
+                        <p className="self-center text-sm text-muted-foreground">Cancellation closed 1 hour before the start.</p>
+                      ))}
+                  </>
+                )
               }
             />
           </li>
@@ -131,6 +142,7 @@ export default function MyBookingsPage() {
   return (
     <div className="container max-w-3xl py-6 sm:py-10">
       {header}
+      {waitlist.data && <WaitlistPanel entries={waitlist.data} now={now} />}
       <Tabs defaultValue="upcoming">
         <TabsList aria-label="Booking lists">
           <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
@@ -190,6 +202,7 @@ export default function MyBookingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <PassDialog booking={showPass} onClose={() => setShowPass(null)} />
     </div>
   );
 }

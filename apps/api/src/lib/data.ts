@@ -22,8 +22,9 @@ const DB_CODES: Record<string, ErrorCode> = {
   VB006: "EMAIL_NOT_VERIFIED",
   VB007: "PROFILE_INCOMPLETE",
   VB008: "NOT_FOUND",
-  VB009: "CANCELLATION_CLOSED",
+  VB009: "INVALID_STATE",
   VB010: "PARTICIPANT_CONFLICT",
+  VB011: "OFFER_EXPIRED",
 };
 
 function parseDetail(detail: unknown): unknown {

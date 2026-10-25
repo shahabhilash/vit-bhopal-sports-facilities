@@ -10,10 +10,14 @@ import {
 import { FACILITIES, type BookableCode } from "./catalog";
 import { isActive, type Booking } from "./bookings";
 
+/** Decision Q10: waiting lists close 2 hours before the start. */
+export const WAITLIST_LEAD_MS = 2 * 60 * 60 * 1000;
+
 export type SlotState =
   | { kind: "open" }
   | { kind: "mine"; bookingId: string }
-  | { kind: "booked" }
+  /** waitlist: the slot is far enough ahead (2 h) to join its waiting list. */
+  | { kind: "booked"; waitlist: boolean }
   | { kind: "blocked"; reason: string }
   | { kind: "past" }
   | { kind: "not_released"; opensAt: Date }
@@ -71,7 +75,9 @@ export function slotStates(
     else if (opensAt && opensAt > now) state = { kind: "not_released", opensAt };
     else if (!availability || !resourceId) state = { kind: "loading" };
     else if (entry?.state === "blocked") state = { kind: "blocked", reason: entry.label ?? "Unavailable" };
-    else if (entry?.state === "booked") state = { kind: "booked" };
+    else if (entry?.state === "booked") {
+      state = { kind: "booked", waitlist: slotStartInstant(date, slot.index).getTime() - now.getTime() >= WAITLIST_LEAD_MS };
+    }
     else state = { kind: "open" };
     return { slot, state };
   });

@@ -5,20 +5,28 @@ import { z } from "zod";
 import {
   ApiError,
   availabilityQuerySchema,
+  checkOutSchema,
   createBookingSchema,
+  guardScanSchema,
+  joinWaitlistSchema,
   updateProfileSchema,
   type ApiErrorBody,
   type AvailabilityEntry,
   type BookingDto,
+  type BookingPassDto,
+  type GuardScanDto,
   type ProfileDto,
   type ResourceDto,
+  type Role,
+  type WaitlistEntryDto,
 } from "@vitb/shared";
 import type { Config } from "./config";
 import type { TokenVerifier } from "./lib/auth";
-import type { Db } from "./lib/data";
+import { mapDbError, type Db } from "./lib/data";
 import {
   type AppEnv,
   corsPolicy,
+  createRoleGuard,
   rateLimit,
   requestContext,
   requireAuth,
@@ -131,10 +139,80 @@ export function createApp({ config, verifyToken, db }: AppDeps) {
     return c.json(booking, 201);
   });
 
+  const idParam = (c: Context<AppEnv>, what: string) => {
+    const id = c.req.param("id") ?? "";
+    if (!uuid.safeParse(id).success) throw new ApiError("NOT_FOUND", `${what} not found.`);
+    return id;
+  };
+
   app.post("/v1/bookings/:id/cancel", ...signedIn, async (c) => {
-    const id = c.req.param("id");
-    if (!uuid.safeParse(id).success) throw new ApiError("NOT_FOUND", "Booking not found.");
+    const id = idParam(c, "Booking");
     return c.json(await db.rpc<BookingDto>("cancel_booking", { p_booking_id: id }, c.get("user")));
+  });
+
+  app.get("/v1/bookings/:id/pass", ...signedIn, async (c) => {
+    const id = idParam(c, "Booking");
+    return c.json(await db.rpc<BookingPassDto>("my_booking_pass", { p_booking_id: id }, c.get("user")));
+  });
+
+  app.post("/v1/bookings/:id/check-out", ...signedIn, async (c) => {
+    const id = idParam(c, "Booking");
+    const input = validate(checkOutSchema, await jsonBody(c));
+    return c.json(
+      await db.rpc<BookingDto>(
+        "check_out",
+        { p_booking_id: id, p_rating: input.rating, p_description: input.description ?? null },
+        c.get("user"),
+      ),
+    );
+  });
+
+  // Waiting list
+  app.get("/v1/waitlist", ...signedIn, async (c) => {
+    return c.json(await db.rpc<WaitlistEntryDto[]>("my_waitlist", {}, c.get("user")));
+  });
+
+  app.post("/v1/waitlist", ...signedIn, async (c) => {
+    const input = validate(joinWaitlistSchema, await jsonBody(c));
+    const entry = await db.rpc<WaitlistEntryDto>(
+      "join_waitlist",
+      {
+        p_resource_id: input.resourceId,
+        p_slot_date: input.date,
+        p_slot_index: input.slotIndex,
+        p_participant_count: input.participantCount ?? null,
+        p_participant_reg_nos: input.participantRegNos ?? null,
+      },
+      c.get("user"),
+    );
+    return c.json(entry, 201);
+  });
+
+  app.post("/v1/waitlist/:id/accept", ...signedIn, async (c) => {
+    const id = idParam(c, "Waiting-list entry");
+    const r = await db.rpc<{ accepted: boolean; booking?: BookingDto; error?: { code: string; message: string; detail?: string } }>(
+      "accept_offer",
+      { p_entry_id: id },
+      c.get("user"),
+    );
+    // A failed acceptance has already moved the offer on; report why.
+    if (!r.accepted) throw mapDbError({ code: r.error?.code, message: r.error?.message, detail: r.error?.detail });
+    return c.json(r.booking, 201);
+  });
+
+  app.post("/v1/waitlist/:id/leave", ...signedIn, async (c) => {
+    const id = idParam(c, "Waiting-list entry");
+    return c.json(await db.rpc<WaitlistEntryDto>("leave_waitlist", { p_entry_id: id }, c.get("user")));
+  });
+
+  // Guard scanner. The database checks the role too; this guard fails fast
+  // and keeps the endpoint closed to students.
+  const requireRole = createRoleGuard(async (user) =>
+    ((await db.rpc<ProfileDto | null>("my_profile", {}, user))?.roles ?? []) as Role[],
+  );
+  app.post("/v1/guard/check-in", ...signedIn, requireRole("guard", "sports_admin"), async (c) => {
+    const { code } = validate(guardScanSchema, await jsonBody(c));
+    return c.json(await db.rpc<GuardScanDto>("guard_check_in", { p_code: code }, c.get("user")));
   });
 
   app.notFound((c) => c.json(errorBody("NOT_FOUND", "Not found.", c.get("requestId")), 404));

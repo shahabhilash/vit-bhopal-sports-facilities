@@ -1,6 +1,15 @@
 "use client";
 import { useCallback } from "react";
-import type { AvailabilityEntry, BookingDto, CreateBookingInput, ProfileDto, ResourceDto } from "@vitb/shared";
+import type {
+  AvailabilityEntry,
+  BookingDto,
+  BookingPassDto,
+  CreateBookingInput,
+  GuardScanDto,
+  ProfileDto,
+  ResourceDto,
+  WaitlistEntryDto,
+} from "@vitb/shared";
 import { apiFetch } from "./api";
 import { revalidate, useApi } from "./use-api";
 import type { SessionStatus } from "./supabase/session";
@@ -55,4 +64,44 @@ export async function updateProfile(input: { fullName?: string; regNo?: string }
   const profile = await apiFetch<ProfileDto>("/v1/me", { method: "PATCH", body: input, auth: true });
   await revalidate("me");
   return profile;
+}
+
+export function useWaitlist(session: SessionStatus) {
+  const fetcher = useCallback(() => apiFetch<WaitlistEntryDto[]>("/v1/waitlist", { auth: true }), []);
+  return useApi(session === "signed-in" ? "waitlist" : null, fetcher);
+}
+
+export function getPass(bookingId: string): Promise<BookingPassDto> {
+  return apiFetch<BookingPassDto>(`/v1/bookings/${bookingId}/pass`, { auth: true });
+}
+
+export async function checkOut(bookingId: string, input: { rating: "good" | "issue"; description?: string }) {
+  const booking = await apiFetch<BookingDto>(`/v1/bookings/${bookingId}/check-out`, { method: "POST", body: input, auth: true });
+  await revalidate("my-bookings");
+  return booking;
+}
+
+export async function joinWaitlist(input: CreateBookingInput): Promise<WaitlistEntryDto> {
+  const entry = await apiFetch<WaitlistEntryDto>("/v1/waitlist", { method: "POST", body: input, auth: true });
+  await revalidate("waitlist");
+  return entry;
+}
+
+export async function acceptOffer(entryId: string): Promise<BookingDto> {
+  try {
+    return await apiFetch<BookingDto>(`/v1/waitlist/${entryId}/accept`, { method: "POST", auth: true });
+  } finally {
+    void revalidate("waitlist");
+    void revalidate("my-bookings");
+    void revalidate("availability:");
+  }
+}
+
+export async function leaveWaitlist(entryId: string): Promise<void> {
+  await apiFetch(`/v1/waitlist/${entryId}/leave`, { method: "POST", auth: true });
+  await revalidate("waitlist");
+}
+
+export function guardScan(code: string): Promise<GuardScanDto> {
+  return apiFetch<GuardScanDto>("/v1/guard/check-in", { method: "POST", body: { code }, auth: true });
 }

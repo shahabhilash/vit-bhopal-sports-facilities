@@ -44,3 +44,19 @@ Adopted on 2026-10-25 from the recommended defaults in [PHASE1_AUDIT.md](PHASE1_
 | Error codes | Functions raise `VB001`–`VB010`; the API maps them to stable codes (`SLOT_TAKEN`, `BOOKING_WINDOW_CLOSED`, …). Messages are passed through only for these codes. | Students get specific messages; internals never leak. |
 | Turf roster privacy | Unregistered registration numbers are listed back to the signed-in organiser so they can fix the list. | Usability over a small enumeration risk; the endpoint requires sign-in and is rate-limited. Revisit if abused. |
 | Concurrency testing | PGlite (single connection) proves the constraints and the API behaviour with 20 parallel requests. True multi-connection races are measured in the Phase 8 staging load test. | No Docker here; the `embedded-postgres` package was not adopted without your approval. |
+
+## Engineering decisions made in Phase 5
+
+| Topic | Decision | Reason |
+|---|---|---|
+| QR pass | One random 64-hex token per booking in `booking_passes` (no policies; read only through `my_booking_pass`). The QR encodes `VITB1.<token>`, with no booking id and no personal data. | Unguessable, revocable by booking status, and needs no extra server secret. |
+| Group check-in | One scan checks in the whole booking. Listed turf players can open the same pass. | Matches how groups arrive; the guard sees the organiser's name, registration number and player count. |
+| Check-in atomicity | `guard_check_in` locks the booking row and updates it only while it is `confirmed`; the no-show job's UPDATE re-checks status under the same lock. | A check-in committed first always wins; a double scan reports "already checked in". |
+| Scan outcomes | Returned rather than raised (`checked_in`, `already_checked_in`, `too_early`, `expired`, `wrong_day`, `cancelled`, `already_completed`, `invalid`) and logged in `check_in_events`. | Every scan is auditable, including invalid ones. |
+| No-show boundary | Check-in allowed until exactly start + 15:00; released from start + 15:00.001. | Precise, testable rule. |
+| Waiting-list hold | A live offer blocks everyone else's `create_booking` for that slot; availability shows it as "Held for the waiting list". | The offered student cannot lose the slot during their 10 minutes. |
+| Per-slot serialisation | `lock_slot()` (transaction advisory lock) before any cancel, offer, join, accept or book on a slot. | Removes the window between "slot freed" and "offer created". |
+| Failed acceptance | If the offered student can no longer take the slot (for example they booked elsewhere), the offer moves on and the reason is returned. | One ineligible student cannot stall the queue. |
+| Notifications | In-app only (My bookings shows offers with a countdown). | No email/SMS provider is configured yet. Offers last 10 minutes, so email alone would be too slow anyway; push notifications are a later option. |
+| Scheduling | `run_scheduled_jobs()` every minute via `pg_cron`; each run is logged in `job_runs` (14 days). | Runs inside the database, independent of the API being awake. Monitoring: alert if no `ok = true` run in the last 5 minutes. |
+| Feedback | Stored in `facility_feedback` at checkout, independent of bookings (`on delete set null`), visible only to the sports admin. Photo upload is Phase 6. | Survives the 10-day booking deletion. |

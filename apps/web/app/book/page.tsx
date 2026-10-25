@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Notice, Skeleton } from "@/components/ui/feedback";
 import { ApiRequestError, errorMessage, isApiConfigured } from "@/lib/api";
 import { bookableDates, slotStates } from "@/lib/availability";
-import { createBooking, useAvailability, useMyBookings, useProfile, useResources, type Booking } from "@/lib/bookings";
+import { createBooking, joinWaitlist, useAvailability, useMyBookings, useProfile, useResources, type Booking } from "@/lib/bookings";
+import type { WaitlistEntryDto } from "@vitb/shared";
 import { BOOKABLE, FACILITIES, isBookable, participantRange, type BookableCode } from "@/lib/catalog";
 import { formatLongDate, slotLabel } from "@/lib/format";
 import { useSessionStatus } from "@/lib/supabase/session";
@@ -123,6 +124,7 @@ function BookingForm({ code }: { code: BookableCode }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [confirmed, setConfirmed] = useState<Booking | null>(null);
+  const [joined, setJoined] = useState<WaitlistEntryDto | null>(null);
   const idempotencyKey = useRef<string>("");
 
   const resources = useResources();
@@ -140,7 +142,9 @@ function BookingForm({ code }: { code: BookableCode }) {
     () => (now && date ? slotStates(code, resourceId, date, availability.data, myBookings.data, now) : []),
     [code, resourceId, date, availability.data, myBookings.data, now],
   );
-  const selectedSlot = slots.find((s) => s.slot.index === slotIndex && s.state.kind === "open") ? slotIndex : null;
+  const selectedState = slots.find((s) => s.slot.index === slotIndex)?.state;
+  const waitlistMode = selectedState?.kind === "booked" && selectedState.waitlist;
+  const selectedSlot = selectedState && (selectedState.kind === "open" || waitlistMode) ? slotIndex : null;
   const rosterCheck = useMemo(() => checkRoster(roster, min, max), [roster, min, max]);
   const rosterOk = !isTurf || (!rosterCheck.countError && rosterCheck.invalid.length === 0 && rosterCheck.duplicates.length === 0);
   const playerCount = isTurf ? rosterCheck.regNos.length : players;
@@ -163,15 +167,16 @@ function BookingForm({ code }: { code: BookableCode }) {
     if (!date || !selectedSlot || !resourceId || submitting) return;
     setSubmitting(true);
     setError(null);
+    const input = isTurf
+      ? { resourceId, date, slotIndex: selectedSlot, participantRegNos: rosterCheck.regNos }
+      : { resourceId, date, slotIndex: selectedSlot, participantCount: players };
     try {
-      const booking = await createBooking(
-        isTurf
-          ? { resourceId, date, slotIndex: selectedSlot, participantRegNos: rosterCheck.regNos }
-          : { resourceId, date, slotIndex: selectedSlot, participantCount: players },
-        idempotencyKey.current,
-      );
+      if (waitlistMode) {
+        setJoined(await joinWaitlist(input));
+      } else {
+        setConfirmed(await createBooking(input, idempotencyKey.current));
+      }
       setReviewOpen(false);
-      setConfirmed(booking);
       window.scrollTo({ top: 0 });
     } catch (err) {
       setError(err);
@@ -179,6 +184,50 @@ function BookingForm({ code }: { code: BookableCode }) {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (joined) {
+    return (
+      <div className="container max-w-lg py-10">
+        <div className="rounded-xl border bg-surface p-6 text-center shadow-card">
+          <CheckCircle2 className="mx-auto h-12 w-12 text-success" aria-hidden />
+          <h1 className="mt-3 text-2xl font-bold" tabIndex={-1} ref={(el) => el?.focus()}>
+            You&apos;re on the waiting list
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Position {joined.position ?? 1}. If the slot is cancelled at least 2 hours before it starts, it is offered to
+            you for 10 minutes. Offers appear in My bookings.
+          </p>
+          <div className="mt-5 text-left">
+            <SummaryRows
+              items={[
+                ["Facility", `${facility.rule.name} · ${joined.resource}`],
+                ["Day", formatLongDate(joined.date)],
+                ["Time", slotLabel(joined.slotIndex)],
+              ]}
+            />
+          </div>
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+            <Link href="/my-bookings" className={cn(buttonVariants({ size: "lg" }), "sm:flex-1")}>
+              <CalendarCheck aria-hidden />
+              My bookings
+            </Link>
+            <Button
+              variant="outline"
+              size="lg"
+              className="sm:flex-1"
+              onClick={() => {
+                setJoined(null);
+                setSlotIndex(null);
+                setAttempted(false);
+              }}
+            >
+              Back to slots
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (confirmed) {
@@ -228,7 +277,7 @@ function BookingForm({ code }: { code: BookableCode }) {
   const summary: [string, string | null][] = [
     ["Facility", resourceNames.length > 1 ? `${facility.rule.name} · ${resourceName}` : facility.rule.name],
     ["Day", date ? formatLongDate(date) : null],
-    ["Time", selectedSlot ? slotLabel(selectedSlot) : null],
+    ["Time", selectedSlot ? `${slotLabel(selectedSlot)}${waitlistMode ? " (waiting list)" : ""}` : null],
     ["Players", playerCount ? String(playerCount) : null],
   ];
   const loadError = resources.error ?? availability.error;
@@ -399,14 +448,24 @@ function BookingForm({ code }: { code: BookableCode }) {
       <Dialog open={reviewOpen} onOpenChange={(open) => !submitting && setReviewOpen(open)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm your booking</DialogTitle>
-            <DialogDescription>Check the details before you confirm.</DialogDescription>
+            <DialogTitle>{waitlistMode ? "Join the waiting list" : "Confirm your booking"}</DialogTitle>
+            <DialogDescription>
+              {waitlistMode
+                ? "This slot is booked. If it is cancelled at least 2 hours before the start, it is offered to the first person waiting, for 10 minutes."
+                : "Check the details before you confirm."}
+            </DialogDescription>
           </DialogHeader>
           <SummaryRows items={summary} />
           {isTurf && <p className="mt-3 break-words text-xs text-muted-foreground">Players: {rosterCheck.regNos.join(", ")}</p>}
           <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-            <li>Check in with the guard within 15 minutes of the start, or the slot is released.</li>
-            <li>Free cancellation until 1 hour before the start.</li>
+            {waitlistMode ? (
+              <li>Accepting an offer books the slot with the same details, after the usual checks.</li>
+            ) : (
+              <>
+                <li>Check in with the guard within 15 minutes of the start, or the slot is released.</li>
+                <li>Free cancellation until 1 hour before the start.</li>
+              </>
+            )}
           </ul>
           {error !== null && <BookingError error={error} />}
           <DialogFooter>
@@ -415,7 +474,7 @@ function BookingForm({ code }: { code: BookableCode }) {
             </Button>
             {!(error instanceof ApiRequestError && error.code === "SLOT_TAKEN") && (
               <Button size="lg" onClick={confirm} disabled={submitting || !resourceId}>
-                {submitting ? "Booking…" : error !== null ? "Try again" : "Confirm booking"}
+                {submitting ? "Saving…" : error !== null ? "Try again" : waitlistMode ? "Join waiting list" : "Confirm booking"}
               </Button>
             )}
           </DialogFooter>

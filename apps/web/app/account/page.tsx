@@ -1,8 +1,10 @@
 "use client";
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ScanLine } from "lucide-react";
 import { isValidRegNo, normalizeRegNo, type ProfileDto, type Role } from "@vitb/shared";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Notice, PageHeader, Skeleton } from "@/components/ui/feedback";
 import { FieldError, FieldHint, Input, Label } from "@/components/ui/field";
@@ -131,6 +133,12 @@ export default function AccountPage() {
           )}
         </CardContent>
       </Card>
+      {me && (me.roles.includes("guard") || me.roles.includes("sports_admin")) && (
+        <Link href="/guard" className={buttonVariants({ size: "lg", className: "w-full" })}>
+          <ScanLine aria-hidden />
+          Open check-in scanner
+        </Link>
+      )}
       <Button variant="outline" size="lg" className="w-full" onClick={signOut}>
         Sign out
       </Button>

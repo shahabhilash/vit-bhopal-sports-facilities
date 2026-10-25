@@ -4,7 +4,7 @@ import { isSupabaseConfigured, supabaseAnonKey, supabaseUrl } from "@/lib/supaba
 
 // Pages that need a signed-in user. This is a convenience redirect only:
 // the API and the database enforce access on every request.
-const PROTECTED_PREFIXES = ["/account", "/my-bookings", "/check-in", "/report"];
+const PROTECTED_PREFIXES = ["/account", "/my-bookings", "/check-in", "/report", "/guard"];
 
 export async function proxy(request: NextRequest) {
   const isProtected = PROTECTED_PREFIXES.some((p) => request.nextUrl.pathname.startsWith(p));
