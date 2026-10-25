@@ -111,6 +111,7 @@ const STATE_TEXT: Record<SlotState["kind"], string> = {
   blocked: "Unavailable",
   past: "Started",
   not_released: "Not open yet",
+  loading: "Checking…",
 };
 
 export function SlotGrid({
@@ -148,6 +149,7 @@ export function SlotGrid({
               state.kind === "blocked" && "border-warning/40 bg-warning-soft",
               (state.kind === "past" || state.kind === "not_released") &&
                 "border-transparent bg-surface-sunken text-muted-foreground",
+              state.kind === "loading" && "animate-pulse border-transparent bg-surface-sunken text-muted-foreground",
               !selectable && "cursor-not-allowed",
             )}
           >

@@ -4,6 +4,7 @@ import {
   istDateString,
   slotStartInstant,
   turfReleaseInstant,
+  type AvailabilityEntry,
   type TimeSlot,
 } from "@vitb/shared";
 import { FACILITIES, type BookableCode } from "./catalog";
@@ -15,7 +16,8 @@ export type SlotState =
   | { kind: "booked" }
   | { kind: "blocked"; reason: string }
   | { kind: "past" }
-  | { kind: "not_released"; opensAt: Date };
+  | { kind: "not_released"; opensAt: Date }
+  | { kind: "loading" };
 
 export interface DateOption {
   date: string;
@@ -45,25 +47,31 @@ export function bookableDates(code: BookableCode, now: Date): DateOption[] {
 }
 
 /**
- * Slot states for one resource and date. The prototype only knows about this
- * device's bookings; "booked" and "blocked" are filled in by the Phase 4 API.
+ * Slot states for one resource and date, from the server's availability
+ * (taken and blocked slots) and the caller's own bookings. Display only: the
+ * server decides when the booking is submitted.
  */
 export function slotStates(
   code: BookableCode,
-  resource: string,
+  resourceId: string | null,
   date: string,
-  bookings: Booking[],
+  availability: AvailabilityEntry[] | undefined,
+  myBookings: Booking[] | undefined,
   now: Date,
 ): { slot: TimeSlot; state: SlotState }[] {
   const opensAt = FACILITIES[code].rule.releaseRule === "weekly_friday_noon" ? turfReleaseInstant(date) : null;
   return TIME_SLOTS.map((slot) => {
-    const mine = bookings.find(
-      (b) => isActive(b) && b.facility === code && b.resource === resource && b.date === date && b.slotIndex === slot.index,
+    const mine = myBookings?.find(
+      (b) => isActive(b) && b.resourceId === resourceId && b.date === date && b.slotIndex === slot.index,
     );
+    const entry = availability?.find((e) => e.resourceId === resourceId && e.date === date && e.slotIndex === slot.index);
     let state: SlotState;
     if (mine) state = { kind: "mine", bookingId: mine.id };
     else if (slotStartInstant(date, slot.index) <= now) state = { kind: "past" };
     else if (opensAt && opensAt > now) state = { kind: "not_released", opensAt };
+    else if (!availability || !resourceId) state = { kind: "loading" };
+    else if (entry?.state === "blocked") state = { kind: "blocked", reason: entry.label ?? "Unavailable" };
+    else if (entry?.state === "booked") state = { kind: "booked" };
     else state = { kind: "open" };
     return { slot, state };
   });

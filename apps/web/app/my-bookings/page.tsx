@@ -1,52 +1,104 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { BarChart3, CalendarPlus, CalendarX2, History } from "lucide-react";
-import { slotStartInstant } from "@vitb/shared";
+import { BarChart3, CalendarPlus, CalendarX2, History, RefreshCw } from "lucide-react";
 import { BookingCard } from "@/components/booking/booking-card";
-import { PrototypeNotice } from "@/components/prototype-notice";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { EmptyState, PageHeader, Skeleton } from "@/components/ui/feedback";
+import { EmptyState, Notice, PageHeader, Skeleton } from "@/components/ui/feedback";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toaster";
-import { cancelBooking, isActive, useBookings, type Booking } from "@/lib/bookings";
+import { errorMessage } from "@/lib/api";
+import { cancelBooking, isActive, useMyBookings, type Booking } from "@/lib/bookings";
 import { FACILITIES } from "@/lib/catalog";
 import { formatLongDate, slotLabel } from "@/lib/format";
+import { useSessionStatus } from "@/lib/supabase/session";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
 
 const HOUR_MS = 60 * 60 * 1000;
-const byStart = (a: Booking, b: Booking) => a.date.localeCompare(b.date) || a.slotIndex - b.slotIndex;
+const byStart = (a: Booking, b: Booking) => a.startsAt.localeCompare(b.startsAt);
 
 export default function MyBookingsPage() {
-  const bookings = useBookings();
+  const session = useSessionStatus();
+  const { data: bookings, error, loading, refresh } = useMyBookings(session);
   const now = useNow();
   const [toCancel, setToCancel] = useState<Booking | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
-  if (!now) {
+  const header = (
+    <PageHeader
+      title="My bookings"
+      actions={
+        <Link href="/report" className={cn(buttonVariants({ variant: "outline" }))}>
+          <BarChart3 aria-hidden />
+          Activity
+        </Link>
+      }
+    />
+  );
+
+  if (session === "unconfigured") {
     return (
       <div className="container max-w-3xl py-6 sm:py-10">
-        <Skeleton className="h-9 w-48" />
-        <Skeleton className="mt-6 h-11 w-full" />
-        <Skeleton className="mt-4 h-36 w-full" />
+        {header}
+        <Notice tone="warning" title="Bookings are not available here yet">
+          This environment is not connected to the booking service.
+        </Notice>
       </div>
     );
   }
 
-  const ended = (b: Booking) => slotStartInstant(b.date, b.slotIndex).getTime() + HOUR_MS <= now.getTime();
+  if (error) {
+    return (
+      <div className="container max-w-3xl py-6 sm:py-10">
+        {header}
+        <Notice tone="danger" title="Could not load your bookings">
+          <p>{errorMessage(error)}</p>
+          <Button variant="outline" className="mt-2" onClick={() => void refresh()}>
+            <RefreshCw aria-hidden />
+            Try again
+          </Button>
+        </Notice>
+      </div>
+    );
+  }
+
+  if (!now || loading || !bookings) {
+    return (
+      <div className="container max-w-3xl py-6 sm:py-10" aria-busy="true">
+        {header}
+        <Skeleton className="h-11 w-full" />
+        <Skeleton className="mt-4 h-36 w-full" />
+        <Skeleton className="mt-3 h-36 w-full" />
+      </div>
+    );
+  }
+
+  const ended = (b: Booking) => new Date(b.startsAt).getTime() + HOUR_MS <= now.getTime();
   const upcoming = bookings.filter((b) => isActive(b) && !ended(b)).sort(byStart);
-  const past = bookings.filter((b) => b.status === "completed" || (isActive(b) && ended(b))).sort((a, b) => byStart(b, a));
+  const past = bookings
+    .filter((b) => b.status === "completed" || b.status === "no_show" || (isActive(b) && ended(b)))
+    .sort((a, b) => byStart(b, a));
   const cancelled = bookings.filter((b) => b.status === "cancelled").sort((a, b) => byStart(b, a));
 
   const canCancel = (b: Booking) =>
-    b.status === "confirmed" && slotStartInstant(b.date, b.slotIndex).getTime() - now.getTime() > HOUR_MS;
+    b.isOwner && b.status === "confirmed" && new Date(b.startsAt).getTime() - now.getTime() > HOUR_MS;
 
-  function confirmCancel() {
+  async function confirmCancel() {
     if (!toCancel) return;
-    cancelBooking(toCancel.id);
-    toast("success", "Booking cancelled", `${FACILITIES[toCancel.facility].rule.name}, ${slotLabel(toCancel.slotIndex)}`);
-    setToCancel(null);
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      await cancelBooking(toCancel.id);
+      toast("success", "Booking cancelled", `${FACILITIES[toCancel.facility].rule.name}, ${slotLabel(toCancel.slotIndex)}`);
+      setToCancel(null);
+    } catch (err) {
+      setCancelError(errorMessage(err));
+    } finally {
+      setCancelling(false);
+    }
   }
 
   const list = (items: Booking[], empty: React.ReactNode, withActions = false) =>
@@ -60,6 +112,7 @@ export default function MyBookingsPage() {
               booking={b}
               actions={
                 withActions &&
+                b.isOwner &&
                 b.status === "confirmed" &&
                 (canCancel(b) ? (
                   <Button variant="outline" className="text-destructive" onClick={() => setToCancel(b)}>
@@ -77,18 +130,8 @@ export default function MyBookingsPage() {
 
   return (
     <div className="container max-w-3xl py-6 sm:py-10">
-      <PageHeader
-        title="My bookings"
-        actions={
-          <Link href="/report" className={cn(buttonVariants({ variant: "outline" }))}>
-            <BarChart3 aria-hidden />
-            Activity
-          </Link>
-        }
-      />
-      <PrototypeNotice />
-
-      <Tabs defaultValue="upcoming" className="mt-6">
+      {header}
+      <Tabs defaultValue="upcoming">
         <TabsList aria-label="Booking lists">
           <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
           <TabsTrigger value="past">Past</TabsTrigger>
@@ -110,15 +153,19 @@ export default function MyBookingsPage() {
             true,
           )}
         </TabsContent>
-        <TabsContent value="past">
-          {list(past, <EmptyState icon={History} title="No past bookings yet" />)}
-        </TabsContent>
-        <TabsContent value="cancelled">
-          {list(cancelled, <EmptyState icon={CalendarX2} title="No cancelled bookings" />)}
-        </TabsContent>
+        <TabsContent value="past">{list(past, <EmptyState icon={History} title="No past bookings yet" />)}</TabsContent>
+        <TabsContent value="cancelled">{list(cancelled, <EmptyState icon={CalendarX2} title="No cancelled bookings" />)}</TabsContent>
       </Tabs>
 
-      <Dialog open={toCancel !== null} onOpenChange={(open) => !open && setToCancel(null)}>
+      <Dialog
+        open={toCancel !== null}
+        onOpenChange={(open) => {
+          if (!open && !cancelling) {
+            setToCancel(null);
+            setCancelError(null);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cancel this booking?</DialogTitle>
@@ -128,12 +175,17 @@ export default function MyBookingsPage() {
               The slot is released to other students. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
+          {cancelError && (
+            <Notice tone="danger" live>
+              {cancelError}
+            </Notice>
+          )}
           <DialogFooter>
-            <Button variant="outline" size="lg" onClick={() => setToCancel(null)}>
+            <Button variant="outline" size="lg" onClick={() => setToCancel(null)} disabled={cancelling}>
               Keep booking
             </Button>
-            <Button variant="destructive" size="lg" onClick={confirmCancel}>
-              Cancel booking
+            <Button variant="destructive" size="lg" onClick={confirmCancel} disabled={cancelling}>
+              {cancelling ? "Cancelling…" : "Cancel booking"}
             </Button>
           </DialogFooter>
         </DialogContent>

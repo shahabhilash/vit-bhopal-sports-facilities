@@ -6,7 +6,7 @@ Adopted on 2026-10-25 from the recommended defaults in [PHASE1_AUDIT.md](PHASE1_
 |---|---|---|---|
 | Q1 | Turf unit | The whole turf is **one** bookable resource ("Full turf"). | `facility_resources` seed, `FACILITY_RULES.turf` |
 | Q2 | Turf release | Turf weeks run **Saturday → Friday**. Each week opens at **Friday 12:00 IST** the day before it starts. A released date stays bookable until its slot begins. | `turfReleaseInstant()` (display); booking function (authority, Phase 4) |
-| Q3 | Per-student limits | At most 1 active booking per sport per day. Turf: 1 booking per owner per turf week, and one person may appear in only one turf booking per slot. | Booking function + partial unique indexes (Phase 4) |
+| Q3 | Per-student limits | One booking per sport per day, and one turf booking per owner per turf week. Cancelled bookings do not count; completed and missed ones do, so a slot cannot be played and then rebooked the same day. A person (owner or listed player) can be in only one active booking per date and slot. | Partial unique indexes `bookings_owner_day_uq`, `bookings_owner_turf_week_uq`, `participants_active_slot_uq` |
 | Q4 | Pickleball/tennis horizon | Rolling 7 days including today; same-day booking until the slot starts. | `facilities.booking_horizon_days = 7` |
 | Q5 | Pickleball/tennis size | 2–10 participants **per court booking**. | `facilities.min/max_participants` |
 | Q6 | Turf participants | Every participant must be a verified portal user, looked up by registration number. No roster integration until one is provided; the UI must not claim roster validation. | Phase 4 |
@@ -32,3 +32,15 @@ Adopted on 2026-10-25 from the recommended defaults in [PHASE1_AUDIT.md](PHASE1_
 | API framework | Hono on Node 22, bundled with esbuild. | Small, typed, standard `Request`/`Response`, easy to test without a network. |
 | Role checks | `public.has_role()` in SQL; the API re-checks roles through RLS with a 30 s cache. | Roles cannot be forged from JWT metadata. |
 | Database tests | Vitest against **PGlite** (real Postgres compiled to WASM) plus a Supabase shim. | Runs anywhere without Docker. pgTAP against a real Supabase stack can be added in CI. |
+
+## Engineering decisions made in Phase 4
+
+| Topic | Decision | Reason |
+|---|---|---|
+| Double-booking guarantee | Partial unique indexes, not read-then-write checks. `create_booking` maps the unique violation to `SLOT_TAKEN`. | Under concurrency, exactly one INSERT can commit; no lock ordering or retries needed. |
+| Idempotency | Clients send an `Idempotency-Key` (UUID) per booking attempt; `(owner_id, idempotency_key)` is unique. A retry returns the original booking. | Safe retries after timeouts on slow mobile networks. |
+| Clock | Every rule reads `public.app_now()` and IST (`Asia/Kolkata`). | One authoritative clock; tests pin it. |
+| API data access | Only through Postgres functions (`create_booking`, `cancel_booking`, `get_availability`, `my_bookings`, `my_profile`, `update_my_profile`, `list_resources`). | One contract that is tested end to end over HTTP against the real SQL. |
+| Error codes | Functions raise `VB001`–`VB010`; the API maps them to stable codes (`SLOT_TAKEN`, `BOOKING_WINDOW_CLOSED`, …). Messages are passed through only for these codes. | Students get specific messages; internals never leak. |
+| Turf roster privacy | Unregistered registration numbers are listed back to the signed-in organiser so they can fix the list. | Usability over a small enumeration risk; the endpoint requires sign-in and is rate-limited. Revisit if abused. |
+| Concurrency testing | PGlite (single connection) proves the constraints and the API behaviour with 20 parallel requests. True multi-connection races are measured in the Phase 8 staging load test. | No Docker here; the `embedded-postgres` package was not adopted without your approval. |
