@@ -55,6 +55,9 @@ export function BookingCard({ booking, actions }: { booking: Booking; actions?: 
           </dd>
         </div>
       </dl>
+      {booking.status === "cancelled" && booking.cancelReason && (
+        <p className="mt-3 rounded-lg bg-destructive-soft px-3 py-2 text-sm font-medium text-destructive">{booking.cancelReason}</p>
+      )}
       {actions && <div className="mt-4 flex flex-col gap-2 sm:flex-row">{actions}</div>}
     </article>
   );

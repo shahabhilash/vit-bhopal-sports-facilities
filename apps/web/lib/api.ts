@@ -18,8 +18,10 @@ export class ApiRequestError extends Error {
 export const isApiConfigured = Boolean(apiUrl);
 
 interface ApiOptions {
-  method?: "GET" | "POST" | "PATCH";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
+  /** Multipart upload; sent as-is (the browser sets the boundary). */
+  form?: FormData;
   /** Send the signed-in user's access token. */
   auth?: boolean;
   idempotencyKey?: string;
@@ -32,7 +34,7 @@ export async function apiFetch<T>(path: string, opts: ApiOptions = {}): Promise<
     throw new ApiRequestError("NOT_CONFIGURED", "Booking is not available in this environment yet.", 0);
   }
   const headers: Record<string, string> = {};
-  if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+  if (opts.body !== undefined && !opts.form) headers["Content-Type"] = "application/json";
   if (opts.idempotencyKey) headers["Idempotency-Key"] = opts.idempotencyKey;
   if (opts.auth) {
     const token = (await getSupabaseBrowserClient()?.auth.getSession())?.data.session?.access_token;
@@ -45,7 +47,7 @@ export async function apiFetch<T>(path: string, opts: ApiOptions = {}): Promise<
     res = await fetch(`${apiUrl}${path}`, {
       method: opts.method ?? "GET",
       headers,
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      body: opts.form ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body)),
       signal: opts.signal,
     });
   } catch (err) {
@@ -63,6 +65,7 @@ export async function apiFetch<T>(path: string, opts: ApiOptions = {}): Promise<
       body?.error.requestId,
     );
   }
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 

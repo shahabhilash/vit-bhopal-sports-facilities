@@ -69,7 +69,7 @@ function fakeDb(roles: Role[] = ["student"]): Db & { calls: string[]; fail?: Err
 
 function makeApp(env: Record<string, string> = {}, db: Db = fakeDb()) {
   const config: Config = loadConfig(baseEnv(env));
-  return createApp({ config, verifyToken: createTokenVerifier(config, jwks), db });
+  return createApp({ config, verifyToken: createTokenVerifier(config, jwks), db, photos: null });
 }
 
 describe("configuration", () => {

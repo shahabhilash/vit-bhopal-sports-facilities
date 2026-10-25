@@ -25,6 +25,7 @@ const DB_CODES: Record<string, ErrorCode> = {
   VB009: "INVALID_STATE",
   VB010: "PARTICIPANT_CONFLICT",
   VB011: "OFFER_EXPIRED",
+  VB012: "BLOCK_CONFLICT",
 };
 
 function parseDetail(detail: unknown): unknown {

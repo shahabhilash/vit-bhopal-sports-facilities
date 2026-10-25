@@ -2,7 +2,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ScanLine } from "lucide-react";
+import { LayoutDashboard, ScanLine } from "lucide-react";
 import { isValidRegNo, normalizeRegNo, type ProfileDto, type Role } from "@vitb/shared";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -133,6 +133,12 @@ export default function AccountPage() {
           )}
         </CardContent>
       </Card>
+      {me?.roles.includes("sports_admin") && (
+        <Link href="/admin" className={buttonVariants({ size: "lg", className: "w-full" })}>
+          <LayoutDashboard aria-hidden />
+          Open sports office dashboard
+        </Link>
+      )}
       {me && (me.roles.includes("guard") || me.roles.includes("sports_admin")) && (
         <Link href="/guard" className={buttonVariants({ size: "lg", className: "w-full" })}>
           <ScanLine aria-hidden />
