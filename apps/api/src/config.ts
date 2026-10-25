@@ -28,6 +28,9 @@ const envSchema = z
     SUPABASE_URL: z.url(),
     // Publishable (anon) key: requests are made with the caller's JWT, so RLS applies.
     SUPABASE_ANON_KEY: z.string().min(20),
+    // Server-only. Used solely for the private issue-photo bucket (upload and
+    // short-lived signed URLs). Never expose it to the browser.
+    SUPABASE_SERVICE_ROLE_KEY: z.string().min(20).optional(),
     // Only needed for projects still on the legacy shared-secret JWT signing.
     SUPABASE_JWT_SECRET: z.string().min(32).optional(),
     CORS_ALLOWED_ORIGINS: csv.pipe(z.array(origin)),

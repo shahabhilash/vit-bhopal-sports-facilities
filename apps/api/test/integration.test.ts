@@ -1,12 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type CryptoKey, type JWTVerifyGetKey } from "jose";
 import type { ApiErrorBody, AvailabilityEntry, BookingDto, BookingPassDto, GuardScanDto, ProfileDto, ResourceDto, WaitlistEntryDto } from "@vitb/shared";
 import { createApp } from "../src/app";
 import { loadConfig } from "../src/config";
 import { createTokenVerifier } from "../src/lib/auth";
+import { memoryPhotoStore } from "./support/memory-photos";
 import { pgliteDb } from "./support/pglite-db";
+
+const photos = memoryPhotoStore();
 import { createAuthUser, createDb } from "../../../supabase/tests/db";
 
 /*
@@ -63,6 +66,8 @@ beforeAll(async () => {
     ["alice", "alice.23bce10001@vitbhopal.ac.in"],
     ["bob", "bob.23bce10002@vitbhopal.ac.in"],
     ["guard", "guard.gate1@vitbhopal.ac.in"],
+    ["admin", "fr.sports@vitbhopal.ac.in"],
+    ["reporter", "reporter.23bce40001@vitbhopal.ac.in"],
     ...Array.from({ length: 20 }, (_, i) => [`s${i}`, `s${i}.23bce3${String(i).padStart(4, "0")}@vitbhopal.ac.in`]),
   ];
   for (const [name, email] of people) {
@@ -70,7 +75,7 @@ beforeAll(async () => {
     tokens[name!] = await tokenFor(name!, email!);
   }
 
-  await pg.query(`insert into public.user_roles (user_id, role) values ($1, 'guard')`, [ids.guard]);
+  await pg.query(`insert into public.user_roles (user_id, role) values ($1, 'guard'), ($2, 'sports_admin')`, [ids.guard, ids.admin]);
 
   const config = loadConfig({
     APP_ENV: "production",
@@ -79,7 +84,7 @@ beforeAll(async () => {
     CORS_ALLOWED_ORIGINS: "https://sports.example.edu",
     RATE_LIMIT_PER_MINUTE: "1000",
   });
-  app = createApp({ config, verifyToken: createTokenVerifier(config, jwks), db: pgliteDb(pg) });
+  app = createApp({ config, verifyToken: createTokenVerifier(config, jwks), db: pgliteDb(pg), photos });
   resources = (await call<ResourceDto[]>("GET", "/v1/facilities")).body as ResourceDto[];
 });
 
@@ -295,5 +300,113 @@ describe("waiting list through the API", () => {
     } finally {
       await setNow("2026-10-25T06:00:00+05:30");
     }
+  });
+});
+
+describe("sports administrator API", () => {
+  it("is closed to students and guards", async () => {
+    for (const who of ["bob", "guard"]) {
+      expect((await call("GET", "/v1/admin/analytics?from=2026-10-01&to=2026-10-31", { as: who })).status).toBe(403);
+      expect((await call("GET", "/v1/admin/feedback", { as: who })).status).toBe(403);
+      expect((await call("POST", "/v1/admin/blocks", { as: who, body: {} })).status).toBe(403);
+    }
+  });
+
+  it("returns analytics and validates the range", async () => {
+    const ok = await call<{ byFacility: unknown[] }>("GET", "/v1/admin/analytics?from=2026-10-01&to=2026-10-31", { as: "admin" });
+    expect(ok.status).toBe(200);
+    expect(ok.body.byFacility).toHaveLength(3);
+    expect((await call("GET", "/v1/admin/analytics?from=2026-01-01&to=2026-12-31", { as: "admin" })).status).toBe(422);
+  });
+
+  it("requires explicit confirmation before a block cancels bookings", async () => {
+    const target = { resourceId: resId("tennis", "Court 1"), date: "2026-10-30", slotIndex: 11, participantCount: 2 };
+    const booked = await call<BookingDto>("POST", "/v1/bookings", { as: "s17", body: target });
+    expect(booked.status).toBe(201);
+    const block = { facility: "tennis", startDate: "2026-10-30", endDate: "2026-10-30", slotIndexes: [11], reason: "maintenance", note: "Re-netting" };
+
+    const { reason: _reason, note: _note, ...scope } = block;
+    const preview = await call<{ bookings: unknown[] }>("POST", "/v1/admin/blocks/preview", { as: "admin", body: scope });
+    expect(preview.body.bookings).toHaveLength(1);
+
+    const refused = await call("POST", "/v1/admin/blocks", { as: "admin", body: block });
+    expect(refused.status).toBe(409);
+    expect(refused.body.error).toMatchObject({ code: "BLOCK_CONFLICT", details: { affected: 1 } });
+
+    const saved = await call<{ cancelled: number }>("POST", "/v1/admin/blocks", { as: "admin", body: { ...block, cancelAffected: true } });
+    expect(saved.status).toBe(201);
+    expect(saved.body.cancelled).toBe(1);
+    const mine = await call<BookingDto[]>("GET", "/v1/bookings", { as: "s17" });
+    expect(mine.body.find((b) => b.id === booked.body.id)).toMatchObject({ status: "cancelled" });
+  });
+});
+
+describe("issue photos", () => {
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, ...Array(64).fill(7)]);
+  let bookingId = "";
+
+  async function upload(who: string, body: Blob, filename = "photo.png") {
+    const form = new FormData();
+    form.append("photo", body, filename);
+    const res = await app.request(`/v1/bookings/${bookingId}/feedback-photo`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tokens[who]}` },
+      body: form,
+    });
+    return { status: res.status, body: (await res.json()) as ApiErrorBody & { ok?: boolean } };
+  }
+
+  beforeAll(async () => {
+    // reporter: pickleball court 2, Sun 25 Oct slot 3 (10:30 IST), checked in and out with an issue.
+    const b = await call<BookingDto>("POST", "/v1/bookings", {
+      as: "reporter",
+      body: { resourceId: resId("pickleball", "Court 2"), date: "2026-10-25", slotIndex: 3, participantCount: 2 },
+    });
+    bookingId = b.body.id;
+    const pass = await call<BookingPassDto>("GET", `/v1/bookings/${bookingId}/pass`, { as: "reporter" });
+    await setNow("2026-10-25T10:25:00+05:30");
+    await call("POST", "/v1/guard/check-in", { as: "guard", body: { code: pass.body.code } });
+    await call("POST", `/v1/bookings/${bookingId}/check-out`, {
+      as: "reporter",
+      body: { rating: "issue", description: "Two of the court lights are not working." },
+    });
+  });
+
+  afterAll(async () => {
+    await setNow("2026-10-25T06:00:00+05:30");
+  });
+
+  it("rejects files that are not really images, whatever they claim to be", async () => {
+    const html = await upload("reporter", new Blob(["<html><script>alert(1)</script></html>"], { type: "image/png" }));
+    expect(html.status).toBe(422);
+    expect(html.body.error.message).toMatch(/JPEG, PNG or WebP/);
+    expect(photos.objects.size).toBe(0);
+  });
+
+  it("rejects photos over 5 MB", async () => {
+    const big = new Uint8Array(5 * 1024 * 1024 + 10);
+    big.set(png);
+    expect((await upload("reporter", new Blob([big], { type: "image/png" }))).status).toBe(413);
+  });
+
+  it("only lets the report's author upload", async () => {
+    expect((await upload("bob", new Blob([png], { type: "image/png" }))).status).toBe(404);
+  });
+
+  it("stores one photo privately and serves it to the admin via a short-lived URL", async () => {
+    const ok = await upload("reporter", new Blob([png], { type: "application/octet-stream" }), "../../evil.html");
+    expect(ok.status).toBe(201);
+    const [path, object] = [...photos.objects.entries()][0]!;
+    expect(path).toMatch(/^feedback\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.png$/);
+    expect(object.contentType).toBe("image/png");
+
+    expect((await upload("reporter", new Blob([png], { type: "image/png" }))).status).toBe(409);
+
+    const inbox = await call<{ items: { id: string; hasPhoto: boolean }[] }>("GET", "/v1/admin/feedback?rating=issue", { as: "admin" });
+    const report = inbox.body.items.find((i) => i.hasPhoto)!;
+    const url = await call<{ url: string; expiresIn: number }>("GET", `/v1/admin/feedback/${report.id}/photo`, { as: "admin" });
+    expect(url.body.expiresIn).toBe(60);
+    expect(url.body.url).toContain(encodeURIComponent(path));
+    expect((await call("GET", `/v1/admin/feedback/${report.id}/photo`, { as: "reporter" })).status).toBe(403);
   });
 });

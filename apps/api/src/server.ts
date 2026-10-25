@@ -3,6 +3,7 @@ import { createApp } from "./app";
 import { loadConfig } from "./config";
 import { createTokenVerifier } from "./lib/auth";
 import { createSupabaseDb } from "./lib/data";
+import { createSupabasePhotoStore } from "./lib/photos";
 
 const config = loadConfig();
 
@@ -10,6 +11,7 @@ const app = createApp({
   config,
   verifyToken: createTokenVerifier(config),
   db: createSupabaseDb(config),
+  photos: createSupabasePhotoStore(config),
 });
 
 const server = serve({ fetch: app.fetch, port: config.PORT, hostname: "0.0.0.0" }, (info) => {

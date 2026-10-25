@@ -1,13 +1,14 @@
 "use client";
 import { useState } from "react";
-import { ThumbsUp, TriangleAlert } from "lucide-react";
+import { ImagePlus, ThumbsUp, TriangleAlert, X } from "lucide-react";
+import { MAX_PHOTO_BYTES, PHOTO_TYPES } from "@vitb/shared";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Notice } from "@/components/ui/feedback";
-import { FieldError, Label, Textarea } from "@/components/ui/field";
+import { FieldError, FieldHint, Label, Textarea } from "@/components/ui/field";
 import { toast } from "@/components/ui/toaster";
 import { errorMessage } from "@/lib/api";
-import { checkOut, type Booking } from "@/lib/bookings";
+import { checkOut, uploadIssuePhoto, type Booking } from "@/lib/bookings";
 import { cn } from "@/lib/utils";
 
 export function CheckoutDialog({ booking, onClose }: { booking: Booking | null; onClose: () => void }) {
@@ -16,6 +17,23 @@ export function CheckoutDialog({ booking, onClose }: { booking: Booking | null; 
   const [attempted, setAttempted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  function choosePhoto(file: File | undefined) {
+    setPhotoError(null);
+    if (!file) return;
+    // A quick check here; the server re-checks size and the file's real type.
+    if (!(PHOTO_TYPES as readonly string[]).includes(file.type)) {
+      setPhotoError("Use a JPEG, PNG or WebP photo.");
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setPhotoError("The photo is larger than 5 MB. Choose a smaller one.");
+      return;
+    }
+    setPhoto(file);
+  }
 
   const ratingError = rating === null ? "Choose how the session went." : null;
   const descriptionError =
@@ -27,6 +45,8 @@ export function CheckoutDialog({ booking, onClose }: { booking: Booking | null; 
     setDescription("");
     setAttempted(false);
     setError(null);
+    setPhoto(null);
+    setPhotoError(null);
     onClose();
   }
 
@@ -37,7 +57,19 @@ export function CheckoutDialog({ booking, onClose }: { booking: Booking | null; 
     setSaving(true);
     try {
       await checkOut(booking.id, { rating: rating!, description: description.trim() || undefined });
-      toast("success", "Checked out", rating === "issue" ? "Thanks. The sports office will review your report." : "Thanks for the feedback.");
+      // The checkout is final; a failed photo upload is reported but never undoes it.
+      const photoFailed =
+        rating === "issue" && photo
+          ? await uploadIssuePhoto(booking.id, photo).then(
+              () => null,
+              (err: unknown) => errorMessage(err),
+            )
+          : null;
+      if (photoFailed) {
+        toast("error", "Checked out, but the photo was not uploaded", photoFailed);
+      } else {
+        toast("success", "Checked out", rating === "issue" ? "Thanks. The sports office will review your report." : "Thanks for the feedback.");
+      }
       setSaving(false);
       close();
     } catch (err) {
@@ -89,7 +121,37 @@ export function CheckoutDialog({ booking, onClose }: { booking: Booking | null; 
               aria-describedby={attempted && descriptionError ? "issue-description-error" : undefined}
             />
             {attempted && descriptionError && <FieldError id="issue-description-error">{descriptionError}</FieldError>}
-            <p className="text-sm text-muted-foreground">Photo uploads are coming soon.</p>
+            <div className="space-y-2 pt-2">
+              <span id="photo-label" className="block text-sm font-semibold">
+                Photo <span className="font-normal text-muted-foreground">(optional)</span>
+              </span>
+              {photo ? (
+                <div className="flex items-center justify-between gap-3 rounded-lg border bg-surface-sunken px-3 py-2 text-sm">
+                  <span className="truncate">{photo.name}</span>
+                  <Button variant="ghost" size="icon" aria-label="Remove photo" onClick={() => setPhoto(null)}>
+                    <X aria-hidden />
+                  </Button>
+                </div>
+              ) : (
+                <label className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-input text-sm font-semibold focus-within:ring-2 focus-within:ring-ring hover:bg-accent">
+                  <ImagePlus className="h-4 w-4" aria-hidden />
+                  Add a photo
+                  <input
+                    type="file"
+                    accept={PHOTO_TYPES.join(",")}
+                    className="sr-only"
+                    aria-labelledby="photo-label"
+                    aria-describedby="photo-hint"
+                    onChange={(e) => {
+                      choosePhoto(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              )}
+              <FieldHint id="photo-hint">JPEG, PNG or WebP, up to 5 MB. Only the sports office can see it.</FieldHint>
+              {photoError && <FieldError>{photoError}</FieldError>}
+            </div>
           </div>
         )}
         {error && (

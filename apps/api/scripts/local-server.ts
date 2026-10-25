@@ -13,6 +13,7 @@ import { createApp } from "../src/app";
 import { loadConfig } from "../src/config";
 import { createTokenVerifier } from "../src/lib/auth";
 import { createAuthUser, createDb } from "../../../supabase/tests/db";
+import { memoryPhotoStore } from "../test/support/memory-photos";
 import { pgliteDb } from "../test/support/pglite-db";
 
 const pg = await createDb();
@@ -53,7 +54,7 @@ const config = loadConfig({
   SUPABASE_ANON_KEY: "local-demo-placeholder-key",
   CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:3101",
 });
-const app = createApp({ config, verifyToken: createTokenVerifier(config), db });
+const app = createApp({ config, verifyToken: createTokenVerifier(config), db, photos: memoryPhotoStore() });
 serve({ fetch: app.fetch, port: config.PORT }, (info) => {
   console.log(`LOCAL DEMO API on http://localhost:${info.port} (in-memory database, demo bookings for ${tomorrow})`);
 });

@@ -60,3 +60,16 @@ Adopted on 2026-10-25 from the recommended defaults in [PHASE1_AUDIT.md](PHASE1_
 | Notifications | In-app only (My bookings shows offers with a countdown). | No email/SMS provider is configured yet. Offers last 10 minutes, so email alone would be too slow anyway; push notifications are a later option. |
 | Scheduling | `run_scheduled_jobs()` every minute via `pg_cron`; each run is logged in `job_runs` (14 days). | Runs inside the database, independent of the API being awake. Monitoring: alert if no `ok = true` run in the last 5 minutes. |
 | Feedback | Stored in `facility_feedback` at checkout, independent of bookings (`on delete set null`), visible only to the sports admin. Photo upload is Phase 6. | Survives the 10-day booking deletion. |
+
+## Engineering decisions made in Phase 6
+
+| Topic | Decision | Reason |
+|---|---|---|
+| Admin authorisation | Every `admin_*` function calls `require_admin()`; the API also checks the role. | Two independent checks; a missed check in either layer is still caught. |
+| Blocks over existing bookings (Q15) | Saving a block that covers confirmed bookings fails with `BLOCK_CONFLICT` unless the admin confirms. Confirmed bookings are then cancelled with "Cancelled by the sports office: <public reason>"; sessions already checked in are left alone; waiting lists inside the block are closed. | Nothing is cancelled silently, and students see why. |
+| Block editing | Edit = replace in one transaction (same rules as create). | One code path for validation and conflicts. |
+| Analytics | Computed live from `bookings` for ranges up to 92 days. "Checked in" (guard scans) is reported next to bookings. | Bookings alone overstate the crowd because of no-shows. **Phase 7** adds daily roll-ups so history survives the 10-day deletion. |
+| Admin booking view | Shows owner name, registration number and email for one day at a time. | Needed to contact students about cancellations; scoped to a day to avoid bulk exposure. |
+| Issue photos | Uploaded through the API (not directly to storage): size ≤ 5 MB, type decided from the file's bytes (JPEG/PNG/WebP), path generated server-side, one photo per report within 24 hours of checkout. Stored in a private bucket with no storage policies; the admin sees them through 60-second signed links. | Untrusted files never choose their own name, type or location, and are never publicly reachable. |
+| Service-role key | Used by the API only for the photo bucket. | Keeps the RLS-bypassing key out of every booking and profile path. |
+| Staff management | Admins grant or remove guard access by email (account must exist and be verified); every change is logged in `role_changes`. | Replaces the SQL-only process for guards. The first admin is still bootstrapped manually. |

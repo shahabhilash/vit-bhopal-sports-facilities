@@ -22,6 +22,7 @@ When the Supabase variables are missing, local `next dev` still renders pages. A
 | `PORT` | no | no (8080) | Port the server listens on. |
 | `SUPABASE_URL` | no | yes | Supabase project URL. The JWT issuer and JWKS URL are derived from it. |
 | `SUPABASE_ANON_KEY` | no | yes | Publishable key. The API sends it together with the **caller's** JWT, so RLS applies. |
+| `SUPABASE_SERVICE_ROLE_KEY` | **yes** | for photos | Used only for the private `feedback-photos` bucket: uploading issue photos and creating 60-second signed links for the admin. Without it, photo upload and viewing return 503 and everything else works. Never give it a `NEXT_PUBLIC_` name or set it on Vercel. |
 | `SUPABASE_JWT_SECRET` | **yes** | no | Only for projects still on the legacy HS256 shared secret. Leave unset when using JWT signing keys (recommended). |
 | `CORS_ALLOWED_ORIGINS` | no | yes | Comma-separated **exact** origins, e.g. `https://sports.vitbhopal.ac.in`. `https` only outside development. `*`, paths and trailing slashes are rejected at startup. |
 | `CORS_ALLOWED_ORIGIN_PATTERNS` | no | no | Preview only. Comma-separated regexes that must start with `^https://` and end with `$`, e.g. `^https://vitb-sports-[a-z0-9-]+-yourteam\.vercel\.app$`. Rejected when `APP_ENV=production`. |
@@ -31,7 +32,7 @@ When the Supabase variables are missing, local `next dev` still renders pages. A
 
 Invalid configuration stops the server at startup with a list of the offending variable **names** (values are never printed).
 
-Phase 6 will add `SUPABASE_SERVICE_ROLE_KEY` (secret, API only) for signed photo URLs. It must never be given a `NEXT_PUBLIC_` name or set on Vercel.
+The service-role key bypasses row-level security, so the API uses it for nothing except the photo bucket; every other database call runs as the signed-in user.
 
 ## Supabase (dashboard settings, per project)
 
@@ -52,5 +53,5 @@ Phase 6 will add `SUPABASE_SERVICE_ROLE_KEY` (secret, API only) for signed photo
 |---|---|---|
 | Supabase database password | Supabase dashboard / password manager | Developers running `supabase db push` |
 | `SUPABASE_JWT_SECRET` (legacy only) | Leapcell | API |
-| `SUPABASE_SERVICE_ROLE_KEY` (Phase 6) | Leapcell | API |
+| `SUPABASE_SERVICE_ROLE_KEY` | Leapcell | API (photo bucket only) |
 | SMTP credentials | Supabase Auth settings | Supabase Auth |

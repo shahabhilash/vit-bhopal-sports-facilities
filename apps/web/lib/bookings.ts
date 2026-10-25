@@ -105,3 +105,9 @@ export async function leaveWaitlist(entryId: string): Promise<void> {
 export function guardScan(code: string): Promise<GuardScanDto> {
   return apiFetch<GuardScanDto>("/v1/guard/check-in", { method: "POST", body: { code }, auth: true });
 }
+
+export async function uploadIssuePhoto(bookingId: string, file: File): Promise<void> {
+  const form = new FormData();
+  form.append("photo", file, file.name);
+  await apiFetch(`/v1/bookings/${bookingId}/feedback-photo`, { method: "POST", form, auth: true });
+}
