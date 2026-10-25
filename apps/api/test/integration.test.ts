@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type CryptoKey, type JWTVerifyGetKey } from "jose";
-import type { ApiErrorBody, AvailabilityEntry, BookingDto, ProfileDto, ResourceDto } from "@vitb/shared";
+import type { ApiErrorBody, AvailabilityEntry, BookingDto, BookingPassDto, GuardScanDto, ProfileDto, ResourceDto, WaitlistEntryDto } from "@vitb/shared";
 import { createApp } from "../src/app";
 import { loadConfig } from "../src/config";
 import { createTokenVerifier } from "../src/lib/auth";
@@ -37,6 +37,8 @@ async function tokenFor(name: string, email: string) {
 const tokens: Record<string, string> = {};
 const resId = (facility: string, name: string) => resources.find((r) => r.facility === facility && r.name === name)!.id;
 
+const setNow = (iso: string) => pg.query(`select set_config('test.now', $1, false)`, [iso]);
+
 async function call<T>(method: string, path: string, opts: { as?: string; body?: unknown; key?: string | null } = {}) {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (opts.as) headers.Authorization = `Bearer ${tokens[opts.as]}`;
@@ -60,12 +62,15 @@ beforeAll(async () => {
   const people = [
     ["alice", "alice.23bce10001@vitbhopal.ac.in"],
     ["bob", "bob.23bce10002@vitbhopal.ac.in"],
+    ["guard", "guard.gate1@vitbhopal.ac.in"],
     ...Array.from({ length: 20 }, (_, i) => [`s${i}`, `s${i}.23bce3${String(i).padStart(4, "0")}@vitbhopal.ac.in`]),
   ];
   for (const [name, email] of people) {
     ids[name!] = await createAuthUser(pg, email!);
     tokens[name!] = await tokenFor(name!, email!);
   }
+
+  await pg.query(`insert into public.user_roles (user_id, role) values ($1, 'guard')`, [ids.guard]);
 
   const config = loadConfig({
     APP_ENV: "production",
@@ -212,5 +217,83 @@ describe("profile", () => {
     });
     expect(res.status).toBe(422);
     expect(res.body.error.details).toEqual({ unregistered: Array.from({ length: 8 }, (_, i) => `23BCE9900${i}`) });
+  });
+});
+
+describe("passes, guard check-in and check-out", () => {
+  it("keeps the scanner closed to students", async () => {
+    const res = await call("POST", "/v1/guard/check-in", { as: "bob", body: { code: "VITB1." + "0".repeat(64) } });
+    expect(res.status).toBe(403);
+    expect((await call("POST", "/v1/guard/check-in", { body: { code: "x" } })).status).toBe(401);
+  });
+
+  it("checks in with the pass code and then checks out with feedback", async () => {
+    // s10: tennis court 2, Sun 25 Oct slot 2 (09:30 IST).
+    const booked = await call<BookingDto>("POST", "/v1/bookings", {
+      as: "s10",
+      body: { resourceId: resId("tennis", "Court 2"), date: "2026-10-25", slotIndex: 2, participantCount: 2 },
+    });
+    const pass = await call<BookingPassDto>("GET", `/v1/bookings/${booked.body.id}/pass`, { as: "s10" });
+    expect(pass.body.code).toMatch(/^VITB1\.[0-9a-f]{64}$/);
+    expect((await call("GET", `/v1/bookings/${booked.body.id}/pass`, { as: "s11" })).status).toBe(404);
+
+    await setNow("2026-10-25T09:25:00+05:30");
+    try {
+      const scan = await call<GuardScanDto>("POST", "/v1/guard/check-in", { as: "guard", body: { code: pass.body.code } });
+      expect(scan.status).toBe(200);
+      expect(scan.body).toMatchObject({ result: "checked_in", booking: { resource: "Court 2", slotIndex: 2 } });
+
+      const bad = await call("POST", `/v1/bookings/${booked.body.id}/check-out`, { as: "s10", body: { rating: "issue", description: "bad" } });
+      expect(bad.status).toBe(422);
+      const out = await call<BookingDto>("POST", `/v1/bookings/${booked.body.id}/check-out`, { as: "s10", body: { rating: "good" } });
+      expect(out.body.status).toBe("completed");
+      const again = await call("POST", `/v1/bookings/${booked.body.id}/check-out`, { as: "s10", body: { rating: "good" } });
+      expect(again.status).toBe(409);
+      expect(again.body.error.code).toBe("INVALID_STATE");
+    } finally {
+      await setNow("2026-10-25T06:00:00+05:30");
+    }
+  });
+});
+
+describe("waiting list through the API", () => {
+  const slot = () => ({ resourceId: resId("pickleball", "Court 1"), date: "2026-10-29", slotIndex: 7, participantCount: 2 });
+
+  it("joins, receives the offer on cancellation, holds the slot, and books on accept", async () => {
+    const owner = await call<BookingDto>("POST", "/v1/bookings", { as: "s12", body: slot() });
+    expect(owner.status).toBe(201);
+
+    const open = await call("POST", "/v1/waitlist", { as: "s13", body: { ...slot(), resourceId: resId("pickleball", "Court 2") } });
+    expect(open.status).toBe(422);
+
+    const joined = await call<WaitlistEntryDto>("POST", "/v1/waitlist", { as: "s13", body: slot() });
+    expect(joined.status).toBe(201);
+    expect(joined.body).toMatchObject({ status: "waiting", position: 1 });
+
+    await call("POST", `/v1/bookings/${owner.body.id}/cancel`, { as: "s12" });
+    const mine = await call<WaitlistEntryDto[]>("GET", "/v1/waitlist", { as: "s13" });
+    expect(mine.body[0]).toMatchObject({ status: "offered", offerExpiresAt: expect.any(String) });
+
+    const sneaky = await call("POST", "/v1/bookings", { as: "s14", body: slot() });
+    expect(sneaky.status).toBe(409);
+    expect(sneaky.body.error.code).toBe("SLOT_TAKEN");
+
+    const accepted = await call<BookingDto>("POST", `/v1/waitlist/${joined.body.id}/accept`, { as: "s13" });
+    expect(accepted.status).toBe(201);
+    expect(accepted.body).toMatchObject({ status: "confirmed", slotIndex: 7 });
+  });
+
+  it("reports an expired offer with OFFER_EXPIRED", async () => {
+    const owner = await call<BookingDto>("POST", "/v1/bookings", { as: "s15", body: { ...slot(), slotIndex: 8 } });
+    const joined = await call<WaitlistEntryDto>("POST", "/v1/waitlist", { as: "s16", body: { ...slot(), slotIndex: 8 } });
+    await call("POST", `/v1/bookings/${owner.body.id}/cancel`, { as: "s15" });
+    await setNow("2026-10-25T06:11:00+05:30");
+    try {
+      const late = await call("POST", `/v1/waitlist/${joined.body.id}/accept`, { as: "s16" });
+      expect(late.status).toBe(409);
+      expect(late.body.error.code).toBe("OFFER_EXPIRED");
+    } finally {
+      await setNow("2026-10-25T06:00:00+05:30");
+    }
   });
 });

@@ -63,3 +63,33 @@ export async function expectDenied(promise: Promise<unknown>): Promise<void> {
   }
   throw new Error("Expected the statement to be denied, but it succeeded");
 }
+
+/** Makes app_now() read a session setting so tests control the clock. */
+export async function pinClock(db: PGlite, iso: string): Promise<void> {
+  await db.exec(`
+    create or replace function public.app_now() returns timestamptz language sql stable set search_path = ''
+    as $$ select current_setting('test.now')::timestamptz $$;
+  `);
+  await setNow(db, iso);
+}
+
+export async function setNow(db: PGlite, iso: string): Promise<void> {
+  await db.query(`select set_config('test.now', $1, false)`, [iso]);
+}
+
+/** Asserts a call fails with the given SQLSTATE; returns the error for further checks. */
+export async function expectCode(
+  promise: Promise<unknown>,
+  code: string,
+  message?: RegExp,
+): Promise<{ code?: string; message: string; detail?: string }> {
+  try {
+    await promise;
+  } catch (err) {
+    const e = err as { code?: string; message: string; detail?: string };
+    if (e.code !== code) throw new Error(`Expected SQLSTATE ${code} but got ${e.code}: ${e.message}`);
+    if (message && !message.test(e.message)) throw new Error(`Message ${JSON.stringify(e.message)} does not match ${message}`);
+    return e;
+  }
+  throw new Error(`Expected SQLSTATE ${code}, but the call succeeded`);
+}

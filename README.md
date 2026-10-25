@@ -2,7 +2,7 @@
 
 Booking portal for VIT Bhopal's pickleball courts, tennis courts and turf, with guard-verified QR check-in and a sports-office dashboard.
 
-> **Status:** Phases 2–4 are complete: sign-in and roles, the mobile-first redesign, and the booking engine (database-enforced bookings, availability, cancellation and turf rosters). Guard QR check-in and the waiting list are next (Phase 5). See [docs/PHASE1_AUDIT.md](docs/PHASE1_AUDIT.md) for the plan.
+> **Status:** Phases 2–5 are complete: sign-in and roles, the mobile-first redesign, the booking engine, and check-in (QR passes, guard scanner, check-out with feedback, no-show release, waiting list). The admin dashboard is next (Phase 6). See [docs/PHASE1_AUDIT.md](docs/PHASE1_AUDIT.md) for the plan.
 
 ## Layout
 

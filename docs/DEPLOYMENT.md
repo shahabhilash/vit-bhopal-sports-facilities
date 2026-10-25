@@ -24,6 +24,7 @@ Never point preview deployments at the production database.
    ```
 
    Migrations live in `supabase/migrations/` and are applied in filename order. Never edit a migration that has been applied anywhere; add a new one.
+   The Phase 5 migration enables `pg_cron` and schedules `run_scheduled_jobs()` every minute. If `db push` fails at that step, enable **pg_cron** under Database → Extensions and push again. Check it with `select * from cron.job;` and, a few minutes later, `select * from public.job_runs order by started_at desc limit 5;`.
 3. Apply the dashboard settings listed in [ENVIRONMENT.md § Supabase](ENVIRONMENT.md#supabase-dashboard-settings-per-project). The **Before User Created** hook and **custom SMTP** are mandatory.
 4. Bootstrap the sports administrator as described in [ROLES.md](ROLES.md).
 

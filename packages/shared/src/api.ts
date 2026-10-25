@@ -74,3 +74,66 @@ export const updateProfileSchema = z
   })
   .strict()
   .refine((v) => v.fullName !== undefined || v.regNo !== undefined, "nothing to update");
+
+export interface BookingPassDto {
+  bookingId: string;
+  /** Encoded in the QR code. Contains no personal data. */
+  code: string;
+}
+
+export type ScanResult =
+  | "checked_in"
+  | "already_checked_in"
+  | "already_completed"
+  | "too_early"
+  | "expired"
+  | "wrong_day"
+  | "cancelled"
+  | "invalid";
+
+export interface GuardScanDto {
+  result: ScanResult;
+  booking?: {
+    facility: FacilityCode;
+    resource: string;
+    date: string;
+    slotIndex: number;
+    startsAt: string;
+    participants: number;
+    ownerName: string | null;
+    ownerRegNo: string | null;
+  };
+  checkedInAt?: string | null;
+  opensAt?: string;
+  closesAt?: string;
+}
+
+export type WaitlistStatus = "waiting" | "offered" | "accepted" | "expired" | "left";
+
+export interface WaitlistEntryDto {
+  id: string;
+  facility: FacilityCode;
+  resourceId: string;
+  resource: string;
+  date: string;
+  slotIndex: number;
+  startsAt: string;
+  participants: number;
+  status: WaitlistStatus;
+  /** 1-based queue position while waiting. */
+  position: number | null;
+  offerExpiresAt: string | null;
+  bookingId: string | null;
+  createdAt: string;
+}
+
+export const checkOutSchema = z
+  .object({
+    rating: z.enum(["good", "issue"]),
+    description: z.string().trim().max(1000).optional(),
+  })
+  .strict();
+
+export const guardScanSchema = z.object({ code: z.string().max(200) }).strict();
+
+export const joinWaitlistSchema = createBookingSchema;

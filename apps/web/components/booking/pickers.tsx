@@ -126,11 +126,20 @@ export function SlotGrid({
   return (
     <div role="radiogroup" aria-labelledby="time-label" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
       {slots.map(({ slot, state }) => {
-        const selectable = state.kind === "open";
+        // Booked slots far enough ahead can be chosen to join their waiting list.
+        const waitlist = state.kind === "booked" && state.waitlist;
+        const selectable = state.kind === "open" || waitlist;
         const selected = selectable && slot.index === value;
         const start = slot.label.split(" – ")[0];
-        const statusText =
-          selected ? "Selected" : state.kind === "blocked" ? state.reason : STATE_TEXT[state.kind];
+        const statusText = selected
+          ? waitlist
+            ? "Selected · waiting list"
+            : "Selected"
+          : state.kind === "blocked"
+            ? state.reason
+            : waitlist
+              ? "Booked · join waiting list"
+              : STATE_TEXT[state.kind];
         return (
           <button
             key={slot.index}
@@ -143,9 +152,10 @@ export function SlotGrid({
             className={cn(
               "flex min-h-[3.75rem] flex-col items-start justify-center rounded-lg border px-3 py-2 text-left transition-colors",
               selected && "border-primary bg-primary text-primary-foreground",
-              selectable && !selected && "border-input bg-surface hover:border-primary hover:bg-accent",
+              state.kind === "open" && !selected && "border-input bg-surface hover:border-primary hover:bg-accent",
+              waitlist && !selected && "border-dashed border-input bg-surface-sunken hover:border-primary",
               state.kind === "mine" && "border-success/40 bg-success-soft",
-              state.kind === "booked" && "border-transparent bg-surface-sunken text-muted-foreground line-through decoration-1",
+              state.kind === "booked" && !state.waitlist && "border-transparent bg-surface-sunken text-muted-foreground",
               state.kind === "blocked" && "border-warning/40 bg-warning-soft",
               (state.kind === "past" || state.kind === "not_released") &&
                 "border-transparent bg-surface-sunken text-muted-foreground",
