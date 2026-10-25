@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { photoTooLarge, sniffImage } from "../src/lib/photos";
+import { cleanupOrphanPhotos, photoTooLarge, sniffImage } from "../src/lib/photos";
+import { memoryPhotoStore } from "./support/memory-photos";
 
 const bytes = (...xs: (number | string)[]) =>
   new Uint8Array(xs.flatMap((x) => (typeof x === "string" ? [...x].map((ch) => ch.charCodeAt(0)) : [x])));
@@ -27,5 +28,18 @@ describe("sniffImage", () => {
   it("enforces the 5 MB limit", () => {
     expect(photoTooLarge(5 * 1024 * 1024)).toBe(false);
     expect(photoTooLarge(5 * 1024 * 1024 + 1)).toBe(true);
+  });
+});
+
+describe("cleanupOrphanPhotos", () => {
+  it("removes only files no report points to, in batches", async () => {
+    const keep = new Set(["feedback/a/1.png"]);
+    const store = memoryPhotoStore(async () => keep);
+    for (const name of ["feedback/a/1.png", ...Array.from({ length: 5 }, (_, i) => `feedback/b/${i}.png`)]) {
+      await store.put(name, new Uint8Array([1]), "image/png");
+    }
+    expect(await cleanupOrphanPhotos(store, 2)).toBe(5);
+    expect([...store.objects.keys()]).toEqual(["feedback/a/1.png"]);
+    expect(await cleanupOrphanPhotos(store, 2)).toBe(0);
   });
 });

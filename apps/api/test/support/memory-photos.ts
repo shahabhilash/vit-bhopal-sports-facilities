@@ -1,10 +1,16 @@
 import type { PhotoStore } from "../../src/lib/photos";
 
 /** In-memory stand-in for the private photo bucket (tests and the local demo only). */
-export function memoryPhotoStore(): PhotoStore & { objects: Map<string, { bytes: Uint8Array; contentType: string }> } {
+export function memoryPhotoStore(
+  referenced: () => Promise<Set<string>> = async () => new Set(),
+): PhotoStore & { objects: Map<string, { bytes: Uint8Array; contentType: string }> } {
   const objects = new Map<string, { bytes: Uint8Array; contentType: string }>();
   return {
     objects,
+    async findOrphans(limit) {
+      const keep = await referenced();
+      return [...objects.keys()].filter((k) => !keep.has(k)).slice(0, limit);
+    },
     async put(path, bytes, contentType) {
       if (objects.has(path)) throw new Error("object exists");
       objects.set(path, { bytes, contentType });

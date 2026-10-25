@@ -98,6 +98,19 @@ export function createApp({ config, verifyToken, db, photos }: AppDeps) {
 
   app.get("/health", (c) => c.json({ status: "ok" }));
 
+  // For an uptime monitor: healthy while the per-minute job succeeded in the
+  // last 5 minutes and retention in the last 2 hours, with no recent failures.
+  app.get("/health/jobs", async (c) => {
+    const hb = await db.rpc<{ lastOkAt: string | null; lastRetentionOkAt: string | null; recentFailures: number }>(
+      "job_heartbeat",
+      {},
+      null,
+    );
+    const age = (iso: string | null) => (iso ? Date.now() - new Date(iso).getTime() : Infinity);
+    const ok = age(hb.lastOkAt) < 5 * 60_000 && age(hb.lastRetentionOkAt) < 2 * 60 * 60_000 && hb.recentFailures === 0;
+    return c.json({ ok, ...hb }, ok ? 200 : 503);
+  });
+
   // Public reads: facility configuration and taken/blocked slots (no personal data).
   app.get("/v1/facilities", async (c) => {
     c.header("Cache-Control", "public, max-age=300");
@@ -368,6 +381,10 @@ export function createApp({ config, verifyToken, db, photos }: AppDeps) {
     if (!photos) throw new ApiError("SERVICE_UNAVAILABLE", "Photo storage is not configured.");
     const path = await db.rpc<string>("admin_feedback_photo_path", { p_feedback_id: id }, c.get("user"));
     return c.json({ url: await photos.signedUrl(path, 60), expiresIn: 60 });
+  });
+
+  app.get("/v1/admin/jobs", ...asAdmin, async (c) => {
+    return c.json(await db.rpc<unknown[]>("admin_job_runs", {}, c.get("user")));
   });
 
   app.get("/v1/admin/staff", ...asAdmin, async (c) => {

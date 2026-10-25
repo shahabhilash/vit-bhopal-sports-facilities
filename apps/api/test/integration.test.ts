@@ -88,6 +88,20 @@ beforeAll(async () => {
   resources = (await call<ResourceDto[]>("GET", "/v1/facilities")).body as ResourceDto[];
 });
 
+describe("job health", () => {
+  it("reports unhealthy until the scheduled jobs have run, then healthy", async () => {
+    const before = await call<{ ok: boolean }>("GET", "/health/jobs");
+    expect(before.status).toBe(503);
+    expect(before.body.ok).toBe(false);
+    await pg.query(`select public.run_scheduled_jobs()`);
+    await pg.query(`select public.run_retention_job()`);
+    const after = await call<{ ok: boolean; lastOkAt: string }>("GET", "/health/jobs");
+    expect(after.status).toBe(200);
+    expect(after.body).toMatchObject({ ok: true, lastOkAt: expect.any(String), recentFailures: 0 });
+    expect(Object.keys(after.body).sort()).toEqual(["lastOkAt", "lastRetentionOkAt", "ok", "recentFailures"]);
+  });
+});
+
 describe("public endpoints", () => {
   it("lists bookable resources without signing in", () => {
     expect(resources.map((r) => `${r.facility}:${r.name}`).sort()).toEqual([

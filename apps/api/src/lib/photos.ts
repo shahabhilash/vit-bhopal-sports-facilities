@@ -9,6 +9,23 @@ export interface PhotoStore {
   put(path: string, bytes: Uint8Array, contentType: string): Promise<void>;
   signedUrl(path: string, expiresInSeconds: number): Promise<string>;
   remove(path: string): Promise<void>;
+  /** Stored photos that no report references (older than a day). */
+  findOrphans(limit: number): Promise<string[]>;
+}
+
+/** Deletes orphaned issue photos in batches. Safe to run on several instances at once. */
+export async function cleanupOrphanPhotos(store: PhotoStore, batch = 100): Promise<number> {
+  let removed = 0;
+  for (let round = 0; round < 10; round++) {
+    const orphans = await store.findOrphans(batch);
+    if (orphans.length === 0) break;
+    for (const path of orphans) {
+      await store.remove(path);
+      removed += 1;
+    }
+    if (orphans.length < batch) break;
+  }
+  return removed;
 }
 
 export type SniffedImage = { type: "image/jpeg"; ext: "jpg" } | { type: "image/png"; ext: "png" } | { type: "image/webp"; ext: "webp" };
@@ -52,6 +69,11 @@ export function createSupabasePhotoStore(config: Pick<Config, "SUPABASE_URL" | "
     },
     async remove(path) {
       await bucket().remove([path]);
+    },
+    async findOrphans(limit) {
+      const { data, error } = await client.rpc("orphan_feedback_photos", { p_limit: limit });
+      if (error) throw new Error(`Orphan lookup failed: ${error.message}`);
+      return (data as string[] | null) ?? [];
     },
   };
 }

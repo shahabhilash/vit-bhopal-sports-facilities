@@ -115,3 +115,16 @@ export async function setStaffRole(email: string, role: "guard" | "sports_admin"
   await apiFetch<StaffMemberDto[]>("/v1/admin/staff", { method: "POST", body: { email, role, grant }, auth: true });
   await revalidate("admin:staff");
 }
+
+export interface JobRunDto {
+  job: "every_minute" | "retention" | string;
+  startedAt: string;
+  finishedAt: string | null;
+  ok: boolean | null;
+  details: Record<string, unknown> | null;
+}
+
+export function useJobRuns() {
+  const fetcher = useCallback(() => apiFetch<JobRunDto[]>("/v1/admin/jobs", { auth: true }), []);
+  return useApi("admin:jobs", fetcher);
+}
