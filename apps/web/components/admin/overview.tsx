@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { RefreshCw } from "lucide-react";
 import { TIME_SLOTS, addDays, istDateString, type FacilityAnalytics } from "@vitb/shared";
+import { SystemStatus } from "@/components/admin/system-status";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Notice, Skeleton } from "@/components/ui/feedback";
@@ -61,6 +62,7 @@ export function AdminOverview() {
 
   return (
     <div className="space-y-6">
+      <SystemStatus />
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex flex-wrap gap-2" role="group" aria-label="Date range presets">
           {PRESETS.map((p) => {

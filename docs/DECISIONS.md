@@ -73,3 +73,13 @@ Adopted on 2026-10-25 from the recommended defaults in [PHASE1_AUDIT.md](PHASE1_
 | Issue photos | Uploaded through the API (not directly to storage): size ≤ 5 MB, type decided from the file's bytes (JPEG/PNG/WebP), path generated server-side, one photo per report within 24 hours of checkout. Stored in a private bucket with no storage policies; the admin sees them through 60-second signed links. | Untrusted files never choose their own name, type or location, and are never publicly reachable. |
 | Service-role key | Used by the API only for the photo bucket. | Keeps the RLS-bypassing key out of every booking and profile path. |
 | Staff management | Admins grant or remove guard access by email (account must exist and be verified); every change is logged in `role_changes`. | Replaces the SQL-only process for guards. The first admin is still bootstrapped manually. |
+
+## Engineering decisions made in Phase 7
+
+| Topic | Decision | Reason |
+|---|---|---|
+| Retention mechanics | One SQL statement locks the eligible bookings (`for update skip locked`), adds their counts to `daily_usage_stats`, and deletes them. | A booking is counted exactly once, even if the hourly job overlaps or reruns. |
+| Analytics history | `admin_analytics` reads live bookings plus `daily_usage_stats`. | Charts look the same before and after deletion, with no personal data kept. |
+| Cancelled / no-show retention | 10 days after the slot ends (Q14). | Matches the completed-booking rule closely enough to explain simply. |
+| Orphan photos | Found by a database function, deleted by the API through the storage API every 6 hours. | Deleting rows from `storage.objects` in SQL does not remove the stored file. |
+| Job monitoring | Each run logged in `job_runs` with its job name; `GET /health/jobs` for an external uptime monitor; status shown on the admin overview. | Failures are visible without database access, and alerting needs no extra service in the stack. |

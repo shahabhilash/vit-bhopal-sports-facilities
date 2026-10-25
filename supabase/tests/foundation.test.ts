@@ -322,8 +322,9 @@ describe("schema-wide guarantees", () => {
     expect(rows.length).toBeGreaterThan(0);
     for (const fn of rows) {
       expect(fn.config, fn.proname).toContain('search_path=""');
-      // get_availability is deliberately public: it returns only taken/blocked slots.
-      expect(fn.anon_exec, fn.proname).toBe(fn.proname === "get_availability");
+      // Deliberately public: get_availability returns only taken/blocked slots,
+      // job_heartbeat only job timestamps and a failure count.
+      expect(fn.anon_exec, fn.proname).toBe(["get_availability", "job_heartbeat"].includes(fn.proname));
     }
   });
 });
