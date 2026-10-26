@@ -7,7 +7,7 @@ import { BOOKABLE, FACILITIES } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 
 const STEPS = [
-  { icon: LogIn, title: "Sign in", body: "Use your @vitbhopal.ac.in email. We send you a 6-digit code; there is no password." },
+  { icon: LogIn, title: "Sign in", body: "Continue with your @vitbhopal.ac.in Google account, or get a 6-digit code by email. No password." },
   { icon: CalendarPlus, title: "Pick a slot", body: "Choose the sport, court, day and one-hour slot, and how many people are playing." },
   { icon: QrCode, title: "Show your pass", body: "At the facility, the guard scans your booking pass to check you in." },
   { icon: MessageSquareText, title: "Check out", body: "Tap check out when you finish, and report anything broken." },
