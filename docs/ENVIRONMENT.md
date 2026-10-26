@@ -39,6 +39,7 @@ The service-role key bypasses row-level security, so the API uses it for nothing
 | Setting | Value |
 |---|---|
 | Auth → Providers → Email | Enabled; "Confirm email" on; OTP length 6; OTP expiry 600 s |
+| Auth → Providers → Google | Enabled, with the Google OAuth client ID and secret (see [Google sign-in](#google-sign-in)) |
 | Auth → Anonymous sign-ins | Off |
 | Auth → Hooks → Before User Created | Postgres function `public.hook_before_user_created` |
 | Auth → URL configuration → Site URL | The environment's frontend origin |
@@ -55,3 +56,19 @@ The service-role key bypasses row-level security, so the API uses it for nothing
 | `SUPABASE_JWT_SECRET` (legacy only) | Leapcell | API |
 | `SUPABASE_SERVICE_ROLE_KEY` | Leapcell | API (photo bucket only) |
 | SMTP credentials | Supabase Auth settings | Supabase Auth |
+| Google OAuth client secret | Supabase Auth → Providers → Google | Supabase Auth |
+
+## Google sign-in
+
+Students can sign in with **Continue with Google** (their `@vitbhopal.ac.in` Google Workspace account) or with a 6-digit email code. Both create the same account, and Supabase links them when the email matches. Personal Gmail and every other domain are rejected by the sign-up hook, whichever method is used.
+
+Set it up once per Supabase project:
+
+1. **Google Cloud Console → APIs & Services → OAuth consent screen.** Best: ask the college's Google Workspace admin to create it in the college's Google Cloud organisation with user type **Internal**, so Google itself only offers `@vitbhopal.ac.in` accounts and no Google review is needed. Otherwise use **External** in your own project; the hook still blocks other domains. Scopes: `openid`, `email`, `profile` only.
+2. **Credentials → Create OAuth client ID → Web application.**
+   - Authorised JavaScript origins: the site origin, e.g. `https://sports.vitbhopal.ac.in` (and the staging origin).
+   - Authorised redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`
+3. **Supabase → Authentication → Providers → Google:** enable it and paste the client ID and client secret.
+4. **Supabase → Authentication → URL configuration → Redirect URLs:** make sure `https://<site>/auth/callback` is covered (the `https://<site>/**` entry already does this).
+
+The secret lives only in Supabase. Neither the web app nor the API needs any Google variable.

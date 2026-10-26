@@ -31,7 +31,16 @@ content_path = "./supabase/templates/otp-code.html"
 subject = "Your VIT Bhopal Sports sign-in code"
 content_path = "./supabase/templates/otp-code.html"
 
-# Rejects any address outside @vitbhopal.ac.in before the user is created.
+# "Continue with Google" for @vitbhopal.ac.in Google Workspace accounts.
+# Set both variables in your shell before `supabase start`; never commit them.
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+skip_nonce_check = false
+
+# Rejects any address outside @vitbhopal.ac.in before the user is created,
+# for email codes and Google sign-in alike.
 [auth.hook.before_user_created]
 enabled = true
 uri = "pg-functions://postgres/public/hook_before_user_created"

@@ -15,7 +15,7 @@ Adopted on 2026-10-25 from the recommended defaults in [PHASE1_AUDIT.md](PHASE1_
 | Q9 | Checkout | The student taps "Check out" (only after a guard check-in). Bookings still checked in at slot end are checked out automatically. The feedback prompt follows checkout. | Phase 5 |
 | Q10 | Waiting list | Offers last 10 minutes when the release happens 2 h or more before the slot starts. Later releases (including no-shows) become first-come bookings instead of offers. Turf waitlist entries must include the full participant list. | Phase 5 |
 | Q11 | Cancellation | Free cancellation until 1 hour before start. No penalties in v1; no-shows are recorded. | Phase 4/5 |
-| Q12 | Sign-in | Supabase email OTP (6-digit code). No passwords. | `supabase/config.toml`, `/login` |
+| Q12 | Sign-in | **Continue with Google** for `@vitbhopal.ac.in` Google Workspace accounts, with a 6-digit email code as the fallback. No passwords. The sign-up hook enforces the domain for both. | `supabase/config.toml`, `/login`, `/auth/callback` |
 | Q13 | Registration number | Entered by the student once (format `23BCE10001`, unique, upper-cased). After that only staff tooling can change it. | `profiles.reg_no`, `profiles_guard_reg_no` trigger |
 | Q14 | Retention | Checked-out bookings are deleted 10 days after `checked_out_at`; cancelled and no-show bookings 10 days after the slot ends. Feedback is kept. | Phase 7 |
 | Q15 | Blocks over existing bookings | The admin sees the affected bookings and must confirm "cancel and notify". Nothing is deleted silently. | Phase 6 |
