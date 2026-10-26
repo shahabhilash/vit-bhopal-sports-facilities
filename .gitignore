@@ -146,3 +146,16 @@ vite.config.ts.timestamp-*
 # Supabase CLI local state
 supabase/.temp
 supabase/.branches
+
+# IDE files
+.vscode/
+!.vscode/extensions.json
+.idea/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Supabase CLI local folder
+.supabase/
