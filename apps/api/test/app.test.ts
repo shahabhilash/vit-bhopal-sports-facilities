@@ -262,6 +262,22 @@ describe("abuse protection and error format", () => {
     expect((await json(res)).error.code).toBe("RATE_LIMITED");
   });
 
+  it("does not let one shared IP (campus Wi-Fi) lock out other students", async () => {
+    const app = makeApp();
+    // Five students behind one IP, each using their full per-user allowance.
+    for (let s = 0; s < 5; s++) {
+      const headers = { Authorization: `Bearer ${await token({ sub: `00000000-0000-4000-8000-00000000000${s}` })}` };
+      for (let i = 0; i < 5; i++) expect((await app.request("/v1/me", { headers })).status).toBe(200);
+    }
+  });
+
+  it("still stops a flood from one IP", async () => {
+    const app = makeApp({ RATE_LIMIT_PER_IP_PER_MINUTE: "3" });
+    const statuses: number[] = [];
+    for (let i = 0; i < 4; i++) statuses.push((await app.request("/health")).status);
+    expect(statuses).toEqual([200, 200, 200, 429]);
+  });
+
   it("rejects oversized bodies with 413", async () => {
     const res = await makeApp().request("/v1/me", {
       method: "POST",

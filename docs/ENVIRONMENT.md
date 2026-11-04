@@ -27,7 +27,8 @@ When the Supabase variables are missing, local `next dev` still renders pages. A
 | `CORS_ALLOWED_ORIGINS` | no | yes | Comma-separated **exact** origins, e.g. `https://sports.vitbhopal.ac.in`. `https` only outside development. `*`, paths and trailing slashes are rejected at startup. |
 | `CORS_ALLOWED_ORIGIN_PATTERNS` | no | no | Preview only. Comma-separated regexes that must start with `^https://` and end with `$`, e.g. `^https://vitb-sports-[a-z0-9-]+-yourteam\.vercel\.app$`. Rejected when `APP_ENV=production`. |
 | `TRUST_PROXY_HOPS` | no | no (0) | Number of proxies in front of the API that append to `X-Forwarded-For`. Set this to Leapcell's proxy depth (normally `1`) so rate limits key on the real client address. |
-| `RATE_LIMIT_PER_MINUTE` | no | no (120) | Per-user limit for `/v1/*`. The per-IP limit is twice this. |
+| `RATE_LIMIT_PER_MINUTE` | no | no (120) | Per-user limit for signed-in `/v1/*` routes. |
+| `RATE_LIMIT_PER_IP_PER_MINUTE` | no | no (3000) | Per client IP across all users, as a flood backstop. Kept high because campus Wi-Fi puts many students behind one public IP; it only works if `TRUST_PROXY_HOPS` matches the host so the real client IP is used. |
 | `BODY_LIMIT_BYTES` | no | no (65536) | Maximum request body size. |
 
 Invalid configuration stops the server at startup with a list of the offending variable **names** (values are never printed).

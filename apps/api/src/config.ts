@@ -44,6 +44,10 @@ const envSchema = z
     // Number of reverse proxies in front of the API that append to X-Forwarded-For.
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
     RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).default(120),
+    // Per client IP, across all users. Campus Wi-Fi puts hundreds of students
+    // behind one public IP, so this is only a flood backstop; the per-user
+    // limit above is what normally applies.
+    RATE_LIMIT_PER_IP_PER_MINUTE: z.coerce.number().int().min(1).default(3000),
     BODY_LIMIT_BYTES: z.coerce.number().int().min(1024).max(1_048_576).default(64 * 1024),
   })
   .refine((env) => env.APP_ENV !== "production" || env.CORS_ALLOWED_ORIGIN_PATTERNS.length === 0, {

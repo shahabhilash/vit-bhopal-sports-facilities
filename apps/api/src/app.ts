@@ -94,7 +94,7 @@ export function createApp({ config, verifyToken, db, photos }: AppDeps) {
   app.use("*", (c, next) =>
     (/^\/v1\/bookings\/[^/]+\/feedback-photo$/.test(c.req.path) ? photoLimit : defaultLimit)(c, next),
   );
-  app.use("*", rateLimit({ limit: config.RATE_LIMIT_PER_MINUTE * 2, key: (c) => `ip:${c.get("clientIp")}` }));
+  app.use("*", rateLimit({ limit: config.RATE_LIMIT_PER_IP_PER_MINUTE, key: (c) => `ip:${c.get("clientIp")}` }));
 
   app.get("/health", (c) => c.json({ status: "ok" }));
 
