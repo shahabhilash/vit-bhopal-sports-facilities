@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import Footer from "@/components/footer";
+import { GuardOnlyRedirect } from "@/components/guard-only";
 import { BottomNav, SiteHeader } from "@/components/site-nav";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <Footer />
         </div>
         <BottomNav />
+        <GuardOnlyRedirect />
         <Toaster />
       </body>
     </html>

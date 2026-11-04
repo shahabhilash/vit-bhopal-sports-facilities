@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarCheck, CalendarPlus, Home, Info, QrCode, UserRound, type LucideIcon } from "lucide-react";
+import { SignOutButton, useGuardOnly } from "@/components/guard-only";
 import { cn } from "@/lib/utils";
 import { useSessionStatus } from "@/lib/supabase/session";
 
@@ -20,6 +21,8 @@ const PRIMARY: NavItem[] = [
   { href: "/check-in", label: "Check in", icon: QrCode },
 ];
 
+const GUARD: NavItem[] = [{ href: "/guard", label: "Scanner", icon: QrCode }];
+
 function isActive(pathname: string, item: NavItem) {
   if (item.href === "/") return pathname === "/";
   return [item.href, ...(item.match ?? [])].some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -35,17 +38,23 @@ function useAccountItem(): NavItem {
 export function SiteHeader() {
   const pathname = usePathname();
   const account = useAccountItem();
+  const guardOnly = useGuardOnly();
+  const items = guardOnly ? GUARD : [...PRIMARY, { href: "/access", label: "Facility info", icon: Info }];
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
       <div className="container flex h-14 items-center justify-between gap-4 md:h-16">
-        <Link href="/" className="flex flex-col leading-tight" aria-label="VIT Bhopal Sports Facilities, home">
+        <Link
+          href={guardOnly ? "/guard" : "/"}
+          className="flex flex-col leading-tight"
+          aria-label={guardOnly ? "VIT Bhopal Sports Facilities, check-in scanner" : "VIT Bhopal Sports Facilities, home"}
+        >
           <span className="text-base font-bold md:text-lg">VIT Bhopal</span>
           <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">Sports Facilities</span>
         </Link>
 
         <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
-          {[...PRIMARY, { href: "/access", label: "Facility info", icon: Info }].map((item) => {
+          {items.map((item) => {
             const active = isActive(pathname, item);
             return (
               <Link
@@ -63,19 +72,23 @@ export function SiteHeader() {
           })}
         </nav>
 
-        <Link
-          href={account.href}
-          aria-current={isActive(pathname, account) ? "page" : undefined}
-          className={cn(
-            "hidden h-11 items-center gap-2 rounded-lg px-3 text-sm font-semibold transition-colors md:inline-flex",
-            account.href === "/login"
-              ? "bg-primary text-primary-foreground hover:bg-primary-hover"
-              : "border border-input bg-surface hover:bg-accent",
-          )}
-        >
-          <UserRound className="h-4 w-4" aria-hidden />
-          {account.label}
-        </Link>
+        {guardOnly ? (
+          <SignOutButton className="inline-flex h-11 items-center gap-2 rounded-lg border border-input bg-surface px-3 text-sm font-semibold transition-colors hover:bg-accent" />
+        ) : (
+          <Link
+            href={account.href}
+            aria-current={isActive(pathname, account) ? "page" : undefined}
+            className={cn(
+              "hidden h-11 items-center gap-2 rounded-lg px-3 text-sm font-semibold transition-colors md:inline-flex",
+              account.href === "/login"
+                ? "bg-primary text-primary-foreground hover:bg-primary-hover"
+                : "border border-input bg-surface hover:bg-accent",
+            )}
+          >
+            <UserRound className="h-4 w-4" aria-hidden />
+            {account.label}
+          </Link>
+        )}
       </div>
     </header>
   );
@@ -85,6 +98,8 @@ export function SiteHeader() {
 export function BottomNav() {
   const pathname = usePathname();
   const account = useAccountItem();
+  // Guards get the scanner and sign-out in the header; the page itself is the tool.
+  if (useGuardOnly()) return null;
 
   return (
     <nav

@@ -350,3 +350,42 @@ describe("scheduled jobs", () => {
     }
   });
 });
+
+describe("guard accounts", () => {
+  const fakeId = "00000000-0000-0000-0000-000000000001";
+
+  it("cannot use any student action", async () => {
+    await expectDenied(book("guard", "tennis:Court 1", "2026-11-02", 4));
+    await expectDenied(join("guard", "tennis:Court 1", "2026-11-02", 4));
+    await expectDenied(cancel("guard", fakeId));
+    await expectDenied(pass("guard", fakeId));
+    await expectDenied(accept("guard", fakeId));
+    await expectDenied(leave("guard", fakeId));
+    await expectDenied(rpc("guard", `public.my_waitlist()`));
+    await expectDenied(rpc("guard", `public.check_out($1::uuid, 'good', null)`, [fakeId]));
+    await expectDenied(rpc("guard", `public.feedback_photo_target($1::uuid)`, [fakeId]));
+    await expectDenied(rpc("guard", `public.set_feedback_photo($1::uuid, 'x')`, [fakeId]));
+    await expectDenied(rpc("guard", `public.update_my_profile('New name', '24BCE99999')`));
+  });
+
+  it("cannot edit their profile directly or call the unguarded functions", async () => {
+    const rows = await as(db, actor("guard"), (tx) =>
+      tx.query(`update public.profiles set full_name = 'x' where id = $1 returning id`, [u.guard]),
+    );
+    expect(rows.rows).toHaveLength(0);
+    await expectDenied(
+      rpc("guard", `public.create_booking_unguarded($1::uuid, '2026-11-02'::date, 4::smallint, 2::smallint, null, $2::uuid)`, [
+        res["tennis:Court 1"], randomUUID(),
+      ]),
+    );
+    await expectDenied(rpc("alice", `public.my_waitlist_unguarded()`));
+  });
+
+  it("can still scan passes and read their own profile, and students and admins are unaffected", async () => {
+    const b = await book("gita", "tennis:Court 2", "2026-10-26", 2);
+    await setNow(db, ist("2026-10-26", "09:35"));
+    expect((await scan("guard", (await pass("gita", b.id)).code)).result).toBe("checked_in");
+    expect(await rpc("guard", `public.my_profile()`)).toMatchObject({ roles: ["student", "guard"] });
+    expect(await rpc("admin", `public.my_waitlist()`)).toEqual([]);
+  });
+});

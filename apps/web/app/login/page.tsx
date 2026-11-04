@@ -32,6 +32,16 @@ function authErrorMessage(err: { status?: number; message?: string; code?: strin
   return "Something went wrong. Please try again.";
 }
 
+/**
+ * Staff (guard) accounts sign in with a username and password. A username is
+ * the local part of an @vitbhopal.ac.in account that a project owner created
+ * with a password, so the domain rule and role checks are unchanged.
+ */
+function staffEmail(username: string): string {
+  const value = normalizeEmail(username);
+  return value.includes("@") ? value : `${value}@vitbhopal.ac.in`;
+}
+
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -42,9 +52,43 @@ function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
-  const [step, setStep] = useState<"email" | "code">("email");
+  const [step, setStep] = useState<"email" | "code" | "staff">("email");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  function showStep(nextStep: "email" | "staff") {
+    setStep(nextStep);
+    setError(null);
+    setPassword("");
+  }
+
+  async function staffSignIn(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const staff = staffEmail(username);
+    if (!isAllowedEmail(staff) || !password) {
+      setError("Enter your staff username and password.");
+      return;
+    }
+    if (!supabase) return;
+    setBusy(true);
+    const { error } = await supabase.auth.signInWithPassword({ email: staff, password });
+    setBusy(false);
+    if (error) {
+      setError(
+        error.status === 429
+          ? "Too many attempts. Please wait a few minutes and try again."
+          : error.code === "invalid_credentials" || error.status === 400
+            ? "Wrong username or password."
+            : "Something went wrong. Please try again.",
+      );
+      return;
+    }
+    router.replace(next === "/" ? "/guard" : next);
+    router.refresh();
+  }
 
   async function sendCode(e: FormEvent) {
     e.preventDefault();
@@ -149,7 +193,47 @@ function LoginForm() {
         {busy ? "Sending code…" : "Send code"}
       </Button>
     </form>
+      <Button type="button" variant="ghost" className="w-full" onClick={() => showStep("staff")}>
+        Staff sign-in (guards)
+      </Button>
     </div>
+  ) : step === "staff" ? (
+    <form onSubmit={staffSignIn} noValidate className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="username">Staff username</Label>
+        <Input
+          id="username"
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
+          required
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "login-error" : undefined}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="password">Password</Label>
+        <Input
+          id="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "login-error" : undefined}
+        />
+      </div>
+      {error && <FieldError id="login-error">{error}</FieldError>}
+      <Button type="submit" size="lg" className="w-full" disabled={busy}>
+        {busy ? "Signing in…" : "Sign in"}
+      </Button>
+      <Button type="button" variant="ghost" className="w-full" onClick={() => showStep("email")}>
+        Back to student sign-in
+      </Button>
+    </form>
   ) : (
     <form onSubmit={verifyCode} noValidate className="space-y-4">
       <div className="space-y-2">
