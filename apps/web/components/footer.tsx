@@ -10,9 +10,14 @@ export default function Footer() {
             fr.sports@vitbhopal.ac.in
           </a>
         </p>
-        <Link href="/access" className="font-semibold text-foreground underline-offset-4 hover:underline md:hidden">
-          Facility info and rules
-        </Link>
+        <div className="flex gap-5">
+          <Link href="/access" className="font-semibold text-foreground underline-offset-4 hover:underline md:hidden">
+            Facility info and rules
+          </Link>
+          <Link href="/privacy" className="font-semibold text-foreground underline-offset-4 hover:underline">
+            Privacy policy
+          </Link>
+        </div>
       </div>
     </footer>
   );
