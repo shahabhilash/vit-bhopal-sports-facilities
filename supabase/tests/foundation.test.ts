@@ -139,7 +139,28 @@ describe("profiles RLS", () => {
       as(db, student(studentA), (tx) =>
         tx.query(`update public.profiles set reg_no = '23BCE10002' where id = $1`, [studentA]),
       ),
-    ).rejects.toThrow(/duplicate key/);
+    ).rejects.toMatchObject({ code: "VB005" });
+  });
+
+  it("only accepts the registration number in the student's own email", async () => {
+    // Unused, well-formed, but not Alice's: refused, so nobody can claim another student's number.
+    await expect(
+      as(db, student(studentA), (tx) =>
+        tx.query(`update public.profiles set reg_no = '23BCE77777' where id = $1`, [studentA]),
+      ),
+    ).rejects.toThrow(/must match your college email \(23BCE10001\)/);
+    await as(db, student(studentA), (tx) =>
+      tx.query(`update public.profiles set reg_no = '23bce10001' where id = $1`, [studentA]),
+    );
+    const { rows } = await db.query<{ reg_no: string }>(`select reg_no from public.profiles where id = $1`, [studentA]);
+    expect(rows[0]!.reg_no).toBe("23BCE10001");
+    // Staff tooling (database owner) can still correct a number.
+    await db.query(`update public.profiles set reg_no = null where id = $1`, [studentA]);
+  });
+
+  it("does not show anonymous visitors who created a facility block", async () => {
+    await expectDenied(as(db, { role: "anon" }, (tx) => tx.query(`select created_by from public.facility_blocks`)));
+    await as(db, { role: "anon" }, (tx) => tx.query(`select id, reason, start_date from public.facility_blocks`));
   });
 
   it("a student cannot insert or delete profiles", async () => {

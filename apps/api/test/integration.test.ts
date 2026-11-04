@@ -214,7 +214,13 @@ describe("profile", () => {
     expect(change.status).toBe(403);
     expect(change.body.error.message).toMatch(/already set/);
 
-    const dupe = await call("PATCH", "/v1/me", { as: "alice", body: { regNo: "23BCE10002" } });
+    // Claiming another student's number is refused, with the student's own number in the message.
+    const other = await call("PATCH", "/v1/me", { as: "alice", body: { regNo: "23BCE10002" } });
+    expect(other.status).toBe(422);
+    expect(other.body.error.message).toMatch(/must match your college email \(23BCE10001\)/);
+
+    // An account whose email has no number still cannot take one that is in use.
+    const dupe = await call("PATCH", "/v1/me", { as: "admin", body: { regNo: "23BCE10002" } });
     expect(dupe.status).toBe(409);
     expect(dupe.body.error.message).toMatch(/another account/);
 

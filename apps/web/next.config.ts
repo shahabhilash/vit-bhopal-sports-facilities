@@ -52,6 +52,8 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           // Camera is allowed for this origin only, for the guard QR scanner.
           { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), payment=()" },
+          // Browsers only honour this over HTTPS; local http development ignores it.
+          ...(isDev ? [] : [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }]),
         ],
       },
     ];
