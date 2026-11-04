@@ -79,16 +79,20 @@ export function createSupabaseDb(config: Pick<Config, "SUPABASE_URL" | "SUPABASE
             global: { headers: { Authorization: `Bearer ${user.token}` } },
           })
         : anon;
+      // Server-side log of why Supabase could not be reached; the client only
+      // sees the generic message. Never includes tokens or request data.
+      const unreachable = (cause: unknown) => {
+        console.error(JSON.stringify({ msg: "supabase call failed", fn, cause: String((cause as Error)?.message ?? cause) }));
+        return new ApiError("SERVICE_UNAVAILABLE", "The booking service is not reachable. Please try again.");
+      };
       let result;
       try {
         result = await client.rpc(fn, args);
-      } catch {
-        throw new ApiError("SERVICE_UNAVAILABLE", "The booking service is not reachable. Please try again.");
+      } catch (err) {
+        throw unreachable(err);
       }
       if (result.error) {
-        if (!result.error.code) {
-          throw new ApiError("SERVICE_UNAVAILABLE", "The booking service is not reachable. Please try again.");
-        }
+        if (!result.error.code) throw unreachable(result.error.message || result.error.details);
         throw mapDbError(result.error);
       }
       return result.data as T;
