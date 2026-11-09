@@ -18,7 +18,8 @@ const PRIMARY: NavItem[] = [
   { href: "/", label: "Home", icon: Home },
   { href: "/book", label: "Book", icon: CalendarPlus },
   { href: "/my-bookings", label: "Bookings", icon: CalendarCheck, match: ["/report"] },
-  { href: "/check-in", label: "Check in", icon: QrCode },
+  // Students only show a pass here; the guard's scan is what checks them in.
+  { href: "/check-in", label: "My pass", icon: QrCode },
 ];
 
 const GUARD: NavItem[] = [{ href: "/guard", label: "Scanner", icon: QrCode }];

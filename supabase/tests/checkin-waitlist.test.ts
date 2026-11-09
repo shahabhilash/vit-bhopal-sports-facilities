@@ -295,6 +295,24 @@ describe("waiting list", () => {
     expect(frank).toMatchObject({ status: "offered" });
   });
 
+  it("keeps a court player list from the waiting list through to the booking", async () => {
+    await setNow(db, BASE);
+    const a = await book("alice", "tennis:Court 2", "2026-10-31", 7);
+    const carol = await rpc<Json>("carol", `public.join_waitlist($1::uuid, '2026-10-31', 7::smallint, null, $2::text[])`, [
+      res["tennis:Court 2"],
+      ["23BCE10002", "22mim10045"],
+    ]);
+    expect(carol).toMatchObject({ participants: 2 });
+    await cancel("alice", a.id);
+    const r = await accept("carol", carol.id);
+    expect(r).toMatchObject({ accepted: true, booking: { participants: 2 } });
+    const { rows } = await db.query<{ participant_reg_nos: string[] }>(
+      `select participant_reg_nos from public.bookings where id = $1`,
+      [(r.booking as Json).id],
+    );
+    expect(rows[0]!.participant_reg_nos).toEqual(["23BCE10002", "22MIM10045"]);
+  });
+
   it("does not offer late releases; the slot is simply open", async () => {
     // Slot 12 (19:30) today, cancelled at 17:31: less than 2 hours ahead.
     const b = await book("alice", "pickleball:Court 1", "2026-10-26", 12);

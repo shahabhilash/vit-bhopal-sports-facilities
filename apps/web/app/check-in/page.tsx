@@ -21,7 +21,9 @@ const CLOSES_AFTER = 15 * MINUTE;
 
 function windowText(b: Booking, now: Date) {
   const start = new Date(b.startsAt).getTime();
-  if (b.status === "checked_in") return <p className="text-sm font-semibold text-success">Checked in. Enjoy your game.</p>;
+  if (b.status === "checked_in") {
+    return <p className="text-sm font-semibold text-success">Checked in by the guard. Enjoy your game.</p>;
+  }
   if (b.status === "completed") return <p className="text-sm text-muted-foreground">Session complete.</p>;
   if (b.status === "no_show") {
     return <p className="text-sm font-medium text-destructive">Not checked in within 15 minutes; the slot was released.</p>;
@@ -32,7 +34,7 @@ function windowText(b: Booking, now: Date) {
   if (now.getTime() <= start + CLOSES_AFTER) {
     return (
       <p className="text-sm font-semibold">
-        Check-in is open until {formatTime(new Date(start + CLOSES_AFTER))}. Go to the guard at the facility.
+        Not checked in yet. Show your pass to the guard before {formatTime(new Date(start + CLOSES_AFTER))}.
       </p>
     );
   }
@@ -73,10 +75,11 @@ export default function CheckInPage() {
 
   return (
     <div className="container max-w-3xl py-6 sm:py-10">
-      <PageHeader title="Check in" description={today ? formatLongDate(today) : undefined} />
+      <PageHeader title="My pass" description={today ? formatLongDate(today) : undefined} />
       <Notice tone="info" title="How check-in works">
-        Open your pass and show it to the facility guard, from 10 minutes before the start. If nobody checks in within 15
-        minutes of the start, the slot is released to other students.
+        You cannot check yourself in. Open your pass and show it to the facility guard, from 10 minutes before the start;
+        you are checked in only when the guard scans it. If it is not scanned within 15 minutes of the start, the slot is
+        released to other students.
       </Notice>
 
       <div className="mt-6">

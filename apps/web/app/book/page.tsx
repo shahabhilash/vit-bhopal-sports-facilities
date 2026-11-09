@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, CalendarCheck, CheckCircle2, ChevronRight, RefreshCw } from "lucide-react";
 import { getSlot } from "@vitb/shared";
 import { CourtPicker, DateStrip, SlotGrid } from "@/components/booking/pickers";
-import { PlayerStepper, RosterInput, checkRoster } from "@/components/booking/participants";
+import { PlayerInputs, checkPlayers } from "@/components/booking/participants";
 import { TurfReleaseInfo } from "@/components/turf-release-info";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -117,8 +117,7 @@ function BookingForm({ code }: { code: BookableCode }) {
   const [resourceName, setResourceName] = useState(resourceNames[0] ?? "");
   const [pickedDate, setPickedDate] = useState<string | null>(null);
   const [slotIndex, setSlotIndex] = useState<number | null>(null);
-  const [players, setPlayers] = useState(min);
-  const [roster, setRoster] = useState("");
+  const [players, setPlayers] = useState<string[]>(() => Array.from({ length: min }, () => ""));
   const [reviewOpen, setReviewOpen] = useState(false);
   const [attempted, setAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -136,7 +135,10 @@ function BookingForm({ code }: { code: BookableCode }) {
 
   const availability = useAvailability(code, dates[0]?.date ?? null, dates[dates.length - 1]?.date ?? null);
   const myBookings = useMyBookings(session);
-  const profile = useProfile(isTurf ? session : "signed-out");
+  const profile = useProfile(session);
+  const ownRegNo = profile.data?.regNo ?? null;
+  // The first box is always the booker's own number when the account has one.
+  const playerBoxes = useMemo(() => (ownRegNo ? [ownRegNo, ...players.slice(1)] : players), [ownRegNo, players]);
 
   const slots = useMemo(
     () => (now && date ? slotStates(code, resourceId, date, availability.data, myBookings.data, now) : []),
@@ -145,9 +147,9 @@ function BookingForm({ code }: { code: BookableCode }) {
   const selectedState = slots.find((s) => s.slot.index === slotIndex)?.state;
   const waitlistMode = selectedState?.kind === "booked" && selectedState.waitlist;
   const selectedSlot = selectedState && (selectedState.kind === "open" || waitlistMode) ? slotIndex : null;
-  const rosterCheck = useMemo(() => checkRoster(roster, min, max), [roster, min, max]);
-  const rosterOk = !isTurf || (!rosterCheck.countError && rosterCheck.invalid.length === 0 && rosterCheck.duplicates.length === 0);
-  const playerCount = isTurf ? rosterCheck.regNos.length : players;
+  const playersCheck = useMemo(() => checkPlayers(playerBoxes, min, max), [playerBoxes, min, max]);
+  const rosterOk = !playersCheck.countError && playersCheck.boxErrors.every((e) => e === null);
+  const playerCount = playersCheck.regNos.length;
   const missing = [!date && "a day", !selectedSlot && "a time", !rosterOk && "a valid player list"].filter(Boolean) as string[];
 
   function openReview() {
@@ -167,9 +169,7 @@ function BookingForm({ code }: { code: BookableCode }) {
     if (!date || !selectedSlot || !resourceId || submitting) return;
     setSubmitting(true);
     setError(null);
-    const input = isTurf
-      ? { resourceId, date, slotIndex: selectedSlot, participantRegNos: rosterCheck.regNos }
-      : { resourceId, date, slotIndex: selectedSlot, participantCount: players };
+    const input = { resourceId, date, slotIndex: selectedSlot, participantRegNos: playersCheck.regNos };
     try {
       if (waitlistMode) {
         setJoined(await joinWaitlist(input));
@@ -314,9 +314,9 @@ function BookingForm({ code }: { code: BookableCode }) {
               You can look around now; you&apos;ll be asked to sign in with your college email before booking.
             </Notice>
           )}
-          {isTurf && session === "signed-in" && profile.data && !profile.data.regNo && (
+          {session === "signed-in" && profile.data && !profile.data.regNo && (
             <Notice tone="warning" title="Add your registration number first">
-              Turf bookings list every player by registration number, including you.{" "}
+              Bookings list every player by registration number, including you.{" "}
               <Link href="/account" className="font-semibold text-primary underline underline-offset-4">
                 Go to Account
               </Link>
@@ -392,10 +392,19 @@ function BookingForm({ code }: { code: BookableCode }) {
           </Section>
 
           <Section id="players-label" step={resourceNames.length > 1 ? 4 : 3} title="Players">
-            {isTurf ? (
-              <RosterInput value={roster} onChange={setRoster} check={rosterCheck} showErrors={attempted} />
-            ) : (
-              <PlayerStepper value={players} min={min} max={max} onChange={setPlayers} />
+            <PlayerInputs
+              values={playerBoxes}
+              onChange={setPlayers}
+              min={min}
+              max={max}
+              ownRegNo={ownRegNo}
+              check={playersCheck}
+              showErrors={attempted}
+            />
+            {isTurf && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                For the turf, every player needs an account on this site with their registration number saved.
+              </p>
             )}
           </Section>
         </div>
@@ -456,7 +465,7 @@ function BookingForm({ code }: { code: BookableCode }) {
             </DialogDescription>
           </DialogHeader>
           <SummaryRows items={summary} />
-          {isTurf && <p className="mt-3 break-words text-xs text-muted-foreground">Players: {rosterCheck.regNos.join(", ")}</p>}
+          <p className="mt-3 break-words text-xs text-muted-foreground">Players: {playersCheck.regNos.join(", ")}</p>
           <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
             {waitlistMode ? (
               <li>Accepting an offer books the slot with the same details, after the usual checks.</li>

@@ -173,6 +173,35 @@ describe("court bookings", () => {
   });
 });
 
+describe("court player lists", () => {
+  it("books with one registration number per player and keeps them on the booking", async () => {
+    const b = await book("alice", {
+      resource: "tennis:Court 1",
+      date: "2026-10-30",
+      slot: 2,
+      regNos: ["23bce10001", " 22MIM10045 ", "24BAI10123"],
+    });
+    expect(b).toMatchObject({ status: "confirmed", participants: 3 });
+    const { rows } = await db.query<{ participant_reg_nos: string[] }>(
+      `select participant_reg_nos from public.bookings where id = $1`,
+      [b.id],
+    );
+    // Friends need no account here; numbers are cleaned up and kept in order.
+    expect(rows[0]!.participant_reg_nos).toEqual(["23BCE10001", "22MIM10045", "24BAI10123"]);
+  });
+
+  it("rejects bad, repeated or too few numbers, and a list without the booker", async () => {
+    const at = { resource: "pickleball:Court 2", date: "2026-10-30", slot: 3 };
+    const bad = await expectCode(book("bob", { ...at, regNos: ["23BCE10002", "hello"] }), "VB005", /not valid/);
+    expect(JSON.parse(bad.detail!)).toEqual({ invalid: ["HELLO"] });
+    await expectCode(book("bob", { ...at, regNos: ["23BCE10002", "22MIM10045", "22mim10045"] }), "VB005", /only once/);
+    await expectCode(book("bob", { ...at, regNos: ["23BCE10002"] }), "VB005", /2 to 10 players; you listed 1/);
+    await expectCode(book("bob", { ...at, regNos: ["22MIM10045", "24BAI10123"] }), "VB005", /your own registration number/);
+    // A booker with no registration number saved is sent to the Account page.
+    await expectCode(book("carol", { ...at, regNos: ["23BCE10003", "22MIM10045"] }), "VB007");
+  });
+});
+
 describe("maintenance and HPL blocks", () => {
   beforeAll(async () => {
     const { rows } = await db.query<{ id: string }>(
