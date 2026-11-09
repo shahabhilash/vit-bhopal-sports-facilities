@@ -174,12 +174,13 @@ describe("court bookings", () => {
 });
 
 describe("court player lists", () => {
-  it("books with one registration number per player and adds every player to the booking", async () => {
+  it("books with one registration number per player and keeps them on the booking", async () => {
+    // Only the booker needs an account; the friends here have never signed in.
     const b = await book("alice", {
       resource: "tennis:Court 1",
       date: "2026-10-30",
       slot: 2,
-      regNos: ["23bce10001", " 23BCE20009 ", "23BCE20010"],
+      regNos: ["23bce10001", " 22MIM10045 ", "24BAI10123"],
     });
     expect(b).toMatchObject({ status: "confirmed", participants: 3 });
     const { rows } = await db.query<{ participant_reg_nos: string[] }>(
@@ -187,27 +188,10 @@ describe("court player lists", () => {
       [b.id],
     );
     // Numbers are cleaned up and kept in order.
-    expect(rows[0]!.participant_reg_nos).toEqual(["23BCE10001", "23BCE20009", "23BCE20010"]);
+    expect(rows[0]!.participant_reg_nos).toEqual(["23BCE10001", "22MIM10045", "24BAI10123"]);
+    // Only the booker is attached to the booking.
     const players = await db.query(`select 1 from public.booking_participants where booking_id = $1`, [b.id]);
-    expect(players.rows).toHaveLength(3);
-    // A listed friend now sees the booking, and cannot be booked elsewhere at that time.
-    const { rows: mine } = await as(db, student(users.p9!), (tx) => tx.query<{ r: { id: string }[] }>(`select public.my_bookings() as r`));
-    expect(mine[0]!.r.map((x) => x.id)).toContain(b.id);
-    await expectCode(
-      book("bob", { resource: "pickleball:Court 1", date: "2026-10-30", slot: 2, regNos: ["23BCE10002", "23BCE20009"] }),
-      "VB010",
-    );
-  });
-
-  it("refuses players who have never signed in or saved their registration number", async () => {
-    const e = await expectCode(
-      book("bob", { resource: "tennis:Court 2", date: "2026-10-30", slot: 6, regNos: ["23BCE10002", "22MIM10045"] }),
-      "VB005",
-      /verified account/,
-    );
-    expect(JSON.parse(e.detail!)).toEqual({ unregistered: ["22MIM10045"] });
-    const { rows } = await db.query(`select 1 from public.bookings where slot_date = '2026-10-30' and slot_index = 6`);
-    expect(rows).toHaveLength(0);
+    expect(players.rows).toHaveLength(1);
   });
 
   it("rejects bad, repeated or too few numbers, and a list without the booker", async () => {
@@ -313,8 +297,11 @@ describe("turf", () => {
     await setNow("2026-10-30T12:00:00+05:30");
     const b = await book("alice", { resource: "turf:Full turf", date: "2026-10-31", slot: 10, regNos: roster(10) });
     expect(b).toMatchObject({ status: "confirmed", participants: 10 });
-    const { rows } = await db.query(`select 1 from public.booking_participants where booking_id = $1`, [b.id]);
-    expect(rows).toHaveLength(10);
+    const { rows } = await db.query<{ participant_reg_nos: string[] }>(
+      `select participant_reg_nos from public.bookings where id = $1`,
+      [b.id],
+    );
+    expect(rows[0]!.participant_reg_nos).toEqual(roster(10));
   });
 
   it("allows one turf booking per owner per turf week", async () => {
@@ -344,29 +331,27 @@ describe("turf", () => {
     expect(JSON.parse(bad.detail!)).toEqual({ invalid: ["XYZ"] });
     // Owner missing from the list.
     await expectCode(book("bob", { resource: "turf:Full turf", date: day, slot: 1, regNos: TURF_TEAM.slice(0, 10) }), "VB005", /your own/);
-    // Unregistered players are listed back so the organiser can fix them.
-    const unknown = await expectCode(
-      book("bob", { resource: "turf:Full turf", date: day, slot: 1, regNos: ["23BCE10002", ...TURF_TEAM.slice(0, 8), "23BCE99999"] }),
-      "VB005",
-    );
-    expect(JSON.parse(unknown.detail!)).toEqual({ unregistered: ["23BCE99999"] });
+    // A list with no numbers at all is refused rather than treated as a count.
+    await expectCode(book("bob", { resource: "turf:Full turf", date: day, slot: 1, count: 10 }), "VB005", /you listed 0/);
+  });
+
+  it("accepts players who have never signed in", async () => {
+    const b = await book("bob", {
+      resource: "turf:Full turf",
+      date: "2026-10-26",
+      slot: 1,
+      regNos: ["23BCE10002", ...TURF_TEAM.slice(0, 8), "23BCE99999"],
+    });
+    expect(b).toMatchObject({ status: "confirmed", participants: 10 });
   });
 
   it("requires the organiser's own registration number", async () => {
     await expectCode(book("carol", { resource: "turf:Full turf", date: "2026-10-26", slot: 2, regNos: TURF_TEAM.slice(0, 10) }), "VB007");
   });
 
-  it("stops a listed player from being booked elsewhere at the same time", async () => {
-    // Bob's turf group includes p0; p0 then tries pickleball in the same slot.
-    await book("bob", { resource: "turf:Full turf", date: "2026-10-27", slot: 11, regNos: ["23BCE10002", ...TURF_TEAM.slice(0, 9)] });
-    await expectCode(book("p0", { resource: "pickleball:Court 1", date: "2026-10-27", slot: 11, count: 2 }), "VB010");
-  });
-
-  it("shows the booking to listed players, but not to others", async () => {
-    const asP0 = await as(db, student(users.p0!), (tx) => tx.query<{ r: { facility: string; isOwner: boolean }[] }>(`select public.my_bookings() as r`));
-    expect(asP0.rows[0]!.r).toContainEqual(expect.objectContaining({ facility: "turf", isOwner: false }));
-    const asP11 = await as(db, student(users.p11!), (tx) => tx.query<{ r: unknown[] }>(`select public.my_bookings() as r`));
-    expect(asP11.rows[0]!.r).toEqual([]);
+  it("keeps the booking to its owner: listed players are not attached to it", async () => {
+    const asP0 = await as(db, student(users.p0!), (tx) => tx.query<{ r: { facility: string }[] }>(`select public.my_bookings() as r`));
+    expect(asP0.rows[0]!.r.filter((b) => b.facility === "turf")).toEqual([]);
   });
 });
 
@@ -425,12 +410,12 @@ describe("booking RLS and direct-write protection", () => {
     expect(new Set(rows.map((r) => r.owner_id))).toEqual(new Set([users.carol]));
   });
 
-  it("participants rosters are visible only to the owner, the player, and the admin", async () => {
-    const asAlice = await as(db, student(users.alice!), (tx) => tx.query<{ profile_id: string }>(`select profile_id from public.booking_participants`));
-    // Alice owns a 10-person turf booking: she sees its roster, but nothing of Bob's turf group.
-    expect(asAlice.rows.length).toBeGreaterThanOrEqual(10);
-    const asP0 = await as(db, student(users.p0!), (tx) => tx.query<{ profile_id: string }>(`select distinct profile_id from public.booking_participants`));
-    expect(asP0.rows.map((r) => r.profile_id)).toEqual([users.p0]);
+  it("participant rows are visible only to the owner and the admin", async () => {
+    const asAlice = await as(db, student(users.alice!), (tx) => tx.query<{ profile_id: string }>(`select distinct profile_id from public.booking_participants`));
+    expect(asAlice.rows.map((r) => r.profile_id)).toEqual([users.alice]);
+    const asAdmin = await as(db, student(users.admin!), (tx) => tx.query(`select 1 from public.booking_participants`));
+    const all = await db.query(`select 1 from public.booking_participants`);
+    expect(asAdmin.rows).toHaveLength(all.rows.length);
   });
 
   it("anonymous users cannot read bookings", async () => {

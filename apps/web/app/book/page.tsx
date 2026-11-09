@@ -83,7 +83,6 @@ function SummaryRows({ items }: { items: [string, string | null][] }) {
 function BookingError({ error }: { error: unknown }) {
   const details = error instanceof ApiRequestError ? (error.details as Record<string, string[]> | undefined) : undefined;
   const lists: [string, string[] | undefined][] = [
-    ["Not registered on this site", details?.unregistered],
     ["Not valid", details?.invalid],
     ["Listed twice", details?.duplicates],
   ];
@@ -402,8 +401,7 @@ function BookingForm({ code }: { code: BookableCode }) {
               showErrors={attempted}
             />
             <p className="mt-2 text-sm text-muted-foreground">
-              Every player needs to have signed in on this site once and saved their registration number on the Account
-              page. The booking then shows in each player&apos;s bookings too.
+              Only you need an account. Your friends do not have to sign in; just enter their registration numbers.
             </p>
           </Section>
         </div>

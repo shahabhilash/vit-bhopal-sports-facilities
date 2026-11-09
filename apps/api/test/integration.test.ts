@@ -229,19 +229,16 @@ describe("profile", () => {
     expect(JSON.stringify(bad.body)).not.toMatch(/profiles_|constraint/);
   });
 
-  it("returns unregistered turf players in error details so the organiser can fix them", async () => {
+  it("books the turf for players who have never signed in, and lists bad numbers back", async () => {
     await call("PATCH", "/v1/me", { as: "alice", body: { regNo: "23BCE10001" } });
-    const res = await call("POST", "/v1/bookings", {
-      as: "alice",
-      body: {
-        resourceId: resId("turf", "Full turf"),
-        date: "2026-10-26",
-        slotIndex: 3,
-        participantRegNos: ["23BCE10001", "23BCE10002", ...Array.from({ length: 8 }, (_, i) => `23BCE9900${i}`)],
-      },
-    });
-    expect(res.status).toBe(422);
-    expect(res.body.error.details).toEqual({ unregistered: Array.from({ length: 8 }, (_, i) => `23BCE9900${i}`) });
+    const players = ["23BCE10001", "23BCE10002", ...Array.from({ length: 8 }, (_, i) => `23BCE9900${i}`)];
+    const body = { resourceId: resId("turf", "Full turf"), date: "2026-10-26", slotIndex: 3 };
+    const bad = await call("POST", "/v1/bookings", { as: "alice", body: { ...body, participantRegNos: [...players.slice(0, 9), "nope"] } });
+    expect(bad.status).toBe(422);
+    expect(bad.body.error.details).toEqual({ invalid: ["NOPE"] });
+    const res = await call("POST", "/v1/bookings", { as: "alice", body: { ...body, participantRegNos: players } });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ participants: 10 });
   });
 });
 

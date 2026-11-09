@@ -6,10 +6,10 @@ Adopted on 2026-10-25 from the recommended defaults in [PHASE1_AUDIT.md](PHASE1_
 |---|---|---|---|
 | Q1 | Turf unit | The whole turf is **one** bookable resource ("Full turf"). | `facility_resources` seed, `FACILITY_RULES.turf` |
 | Q2 | Turf release | Turf weeks run **Saturday → Friday**. Each week opens at **Friday 12:00 IST** the day before it starts. A released date stays bookable until its slot begins. | `turfReleaseInstant()` (display); booking function (authority, Phase 4) |
-| Q3 | Per-student limits | One booking per sport per day, and one turf booking per owner per turf week. Cancelled bookings do not count; completed and missed ones do, so a slot cannot be played and then rebooked the same day. A person (owner or listed player) can be in only one active booking per date and slot. | Partial unique indexes `bookings_owner_day_uq`, `bookings_owner_turf_week_uq`, `participants_active_slot_uq` |
+| Q3 | Per-student limits | One booking per sport per day, and one turf booking per owner per turf week. Cancelled bookings do not count; completed and missed ones do, so a slot cannot be played and then rebooked the same day. A booker can be in only one active booking per date and slot (listed players have no account link, so this covers bookers only). | Partial unique indexes `bookings_owner_day_uq`, `bookings_owner_turf_week_uq`, `participants_active_slot_uq` |
 | Q4 | Pickleball/tennis horizon | Rolling 7 days including today; same-day booking until the slot starts. | `facilities.booking_horizon_days = 7` |
 | Q5 | Pickleball/tennis size | 2–10 participants **per court booking**. | `facilities.min/max_participants` |
-| Q6 | Turf participants | Every participant must be a verified portal user, looked up by registration number. No roster integration until one is provided; the UI must not claim roster validation. | Phase 4 |
+| Q6 | Participants | Every sport lists one registration number per player, including the booker's own. Only the booker needs a verified account with their registration number saved; the other numbers must be well formed and listed once, but need no account (changed 11 Nov 2026 at the club's request). The list is stored on the booking. No roster integration until one is provided; the UI must not claim roster validation. | `check_player_reg_nos`, migration `20261111090000` |
 | Q7 | Gym and recreation rooms | Information only; not bookable. | `facilities.bookable = false` |
 | Q8 | Check-in window | Opens 10 minutes before the slot starts and closes 15 minutes after it starts. A check-in committed before `start + 15:00` counts. | Phase 5 |
 | Q9 | Checkout | The student taps "Check out" (only after a guard check-in). Bookings still checked in at slot end are checked out automatically. The feedback prompt follows checkout. | Phase 5 |
@@ -42,7 +42,7 @@ Adopted on 2026-10-25 from the recommended defaults in [PHASE1_AUDIT.md](PHASE1_
 | Clock | Every rule reads `public.app_now()` and IST (`Asia/Kolkata`). | One authoritative clock; tests pin it. |
 | API data access | Only through Postgres functions (`create_booking`, `cancel_booking`, `get_availability`, `my_bookings`, `my_profile`, `update_my_profile`, `list_resources`). | One contract that is tested end to end over HTTP against the real SQL. |
 | Error codes | Functions raise `VB001`–`VB010`; the API maps them to stable codes (`SLOT_TAKEN`, `BOOKING_WINDOW_CLOSED`, …). Messages are passed through only for these codes. | Students get specific messages; internals never leak. |
-| Turf roster privacy | Unregistered registration numbers are listed back to the signed-in organiser so they can fix the list. | Usability over a small enumeration risk; the endpoint requires sign-in and is rate-limited. Revisit if abused. |
+| Player list errors | Malformed or repeated registration numbers are listed back to the signed-in booker so they can fix the list. Whether a number has an account is never checked or revealed. | The booker is accountable for the list; nothing about other students is exposed. |
 | Concurrency testing | PGlite (single connection) proves the constraints and the API behaviour with 20 parallel requests. True multi-connection races are measured in the Phase 8 staging load test. | No Docker here; the `embedded-postgres` package was not adopted without your approval. |
 
 ## Engineering decisions made in Phase 5
@@ -50,7 +50,7 @@ Adopted on 2026-10-25 from the recommended defaults in [PHASE1_AUDIT.md](PHASE1_
 | Topic | Decision | Reason |
 |---|---|---|
 | QR pass | One random 64-hex token per booking in `booking_passes` (no policies; read only through `my_booking_pass`). The QR encodes `VITB1.<token>`, with no booking id and no personal data. | Unguessable, revocable by booking status, and needs no extra server secret. |
-| Group check-in | One scan checks in the whole booking. Listed turf players can open the same pass. | Matches how groups arrive; the guard sees the organiser's name, registration number and player count. |
+| Group check-in | One scan checks in the whole booking. Only the booker holds the pass. | Matches how groups arrive; the guard sees the organiser's name, registration number and player count. |
 | Check-in atomicity | `guard_check_in` locks the booking row and updates it only while it is `confirmed`; the no-show job's UPDATE re-checks status under the same lock. | A check-in committed first always wins; a double scan reports "already checked in". |
 | Scan outcomes | Returned rather than raised (`checked_in`, `already_checked_in`, `too_early`, `expired`, `wrong_day`, `cancelled`, `already_completed`, `invalid`) and logged in `check_in_events`. | Every scan is auditable, including invalid ones. |
 | No-show boundary | Check-in allowed until exactly start + 15:00; released from start + 15:00.001. | Precise, testable rule. |
