@@ -174,20 +174,40 @@ describe("court bookings", () => {
 });
 
 describe("court player lists", () => {
-  it("books with one registration number per player and keeps them on the booking", async () => {
+  it("books with one registration number per player and adds every player to the booking", async () => {
     const b = await book("alice", {
       resource: "tennis:Court 1",
       date: "2026-10-30",
       slot: 2,
-      regNos: ["23bce10001", " 22MIM10045 ", "24BAI10123"],
+      regNos: ["23bce10001", " 23BCE20009 ", "23BCE20010"],
     });
     expect(b).toMatchObject({ status: "confirmed", participants: 3 });
     const { rows } = await db.query<{ participant_reg_nos: string[] }>(
       `select participant_reg_nos from public.bookings where id = $1`,
       [b.id],
     );
-    // Friends need no account here; numbers are cleaned up and kept in order.
-    expect(rows[0]!.participant_reg_nos).toEqual(["23BCE10001", "22MIM10045", "24BAI10123"]);
+    // Numbers are cleaned up and kept in order.
+    expect(rows[0]!.participant_reg_nos).toEqual(["23BCE10001", "23BCE20009", "23BCE20010"]);
+    const players = await db.query(`select 1 from public.booking_participants where booking_id = $1`, [b.id]);
+    expect(players.rows).toHaveLength(3);
+    // A listed friend now sees the booking, and cannot be booked elsewhere at that time.
+    const { rows: mine } = await as(db, student(users.p9!), (tx) => tx.query<{ r: { id: string }[] }>(`select public.my_bookings() as r`));
+    expect(mine[0]!.r.map((x) => x.id)).toContain(b.id);
+    await expectCode(
+      book("bob", { resource: "pickleball:Court 1", date: "2026-10-30", slot: 2, regNos: ["23BCE10002", "23BCE20009"] }),
+      "VB010",
+    );
+  });
+
+  it("refuses players who have never signed in or saved their registration number", async () => {
+    const e = await expectCode(
+      book("bob", { resource: "tennis:Court 2", date: "2026-10-30", slot: 6, regNos: ["23BCE10002", "22MIM10045"] }),
+      "VB005",
+      /verified account/,
+    );
+    expect(JSON.parse(e.detail!)).toEqual({ unregistered: ["22MIM10045"] });
+    const { rows } = await db.query(`select 1 from public.bookings where slot_date = '2026-10-30' and slot_index = 6`);
+    expect(rows).toHaveLength(0);
   });
 
   it("rejects bad, repeated or too few numbers, and a list without the booker", async () => {

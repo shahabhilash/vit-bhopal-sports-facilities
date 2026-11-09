@@ -401,11 +401,10 @@ function BookingForm({ code }: { code: BookableCode }) {
               check={playersCheck}
               showErrors={attempted}
             />
-            {isTurf && (
-              <p className="mt-2 text-sm text-muted-foreground">
-                For the turf, every player needs an account on this site with their registration number saved.
-              </p>
-            )}
+            <p className="mt-2 text-sm text-muted-foreground">
+              Every player needs to have signed in on this site once and saved their registration number on the Account
+              page. The booking then shows in each player&apos;s bookings too.
+            </p>
           </Section>
         </div>
 

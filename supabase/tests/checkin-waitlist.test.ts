@@ -300,7 +300,7 @@ describe("waiting list", () => {
     const a = await book("alice", "tennis:Court 2", "2026-10-31", 7);
     const carol = await rpc<Json>("carol", `public.join_waitlist($1::uuid, '2026-10-31', 7::smallint, null, $2::text[])`, [
       res["tennis:Court 2"],
-      ["23BCE10002", "22mim10045"],
+      ["23BCE10002", "23bce10003"],
     ]);
     expect(carol).toMatchObject({ participants: 2 });
     await cancel("alice", a.id);
@@ -310,7 +310,7 @@ describe("waiting list", () => {
       `select participant_reg_nos from public.bookings where id = $1`,
       [(r.booking as Json).id],
     );
-    expect(rows[0]!.participant_reg_nos).toEqual(["23BCE10002", "22MIM10045"]);
+    expect(rows[0]!.participant_reg_nos).toEqual(["23BCE10002", "23BCE10003"]);
   });
 
   it("does not offer late releases; the slot is simply open", async () => {
