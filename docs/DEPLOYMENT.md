@@ -2,7 +2,7 @@
 
 Three environments, each with its own Supabase project:
 
-| Environment | Frontend (Vercel) | API (Leapcell) | Supabase project |
+| Environment | Frontend (Vercel) | API (Render) | Supabase project |
 |---|---|---|---|
 | development | `localhost:3000` | `localhost:8787` | local CLI stack or a `vitb-sports-dev` project |
 | preview | Vercel preview deployments | `vitb-sports-api-preview` service | `vitb-sports-preview` |
@@ -28,19 +28,21 @@ Never point preview deployments at the production database.
 3. Apply the dashboard settings listed in [ENVIRONMENT.md § Supabase](ENVIRONMENT.md#supabase-dashboard-settings-per-project). The **Before User Created** hook and **custom SMTP** are mandatory.
 4. Bootstrap the sports administrator as described in [ROLES.md](ROLES.md).
 
-## 2. API on Leapcell
+## 2. API on Render
+
+A Render **Web Service** (any Node host works; the API keeps no state of its own).
 
 | Setting | Value |
 |---|---|
-| Repository root | this repository |
-| Runtime | Node.js 22 |
+| Repository root | this repository (leave Root Directory empty) |
+| Language | Node, with `NODE_VERSION=22` |
 | Build command | `npm ci && npm run build -w @vitb/api` |
 | Start command | `npm run start -w @vitb/api` |
-| Port | `8080` (or the value of `PORT`) |
+| Port | set by Render through `PORT`; do not set it yourself |
 | Health check path | `/health` |
-| Environment variables | see [ENVIRONMENT.md § Backend](ENVIRONMENT.md#backend-appsapi-leapcell) |
+| Environment variables | see [ENVIRONMENT.md § Backend](ENVIRONMENT.md#backend-appsapi-render); use `TRUST_PROXY_HOPS=1` and do not set `NODE_ENV` (the build needs dev dependencies) |
 
-Before the first Friday turf release, confirm Leapcell's instance count, concurrency and request-timeout limits, and keep at least one instance warm so the noon rush does not hit a cold start. The in-memory rate limiter is per instance; correctness never depends on it, because the database enforces every booking rule.
+Render's free instance sleeps after 15 minutes without traffic and takes up to a minute to wake. Point an uptime monitor at `/health/jobs` every 5 minutes (see [OPERATIONS.md](OPERATIONS.md)), or use a paid instance, so the Friday noon rush never hits a cold start. The in-memory rate limiter is per instance; correctness never depends on it, because the database enforces every booking rule.
 
 ## 3. Frontend on Vercel
 

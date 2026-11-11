@@ -74,7 +74,7 @@ Confirm these periods against the institute's records policy before launch; they
 ## Friday turf release checklist
 
 - The day before: `/health/jobs` is green, and a test turf booking on staging succeeded.
-- Leapcell: at least one API instance kept warm; instance limits checked against the load test (Phase 8).
+- Render: the API kept awake (uptime monitor or paid instance); instance limits checked against the load test (Phase 8).
 - Supabase: connection pooling on; no long-running admin queries scheduled at noon.
 - After noon: watch the API logs for 5xx responses and Supabase for connection saturation.
 

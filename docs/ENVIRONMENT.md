@@ -10,11 +10,11 @@ All three are **public**: Next.js inlines `NEXT_PUBLIC_*` into the browser bundl
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://abcd1234.supabase.co` | Supabase Auth in the browser, proxy session refresh, CSP `connect-src` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `sb_publishable_…` (or the legacy anon JWT) | Same. Grants only what RLS allows the `anon`/`authenticated` roles. |
-| `NEXT_PUBLIC_API_URL` | `https://vitb-sports-api.leapcell.app` | `lib/api.ts`, CSP `connect-src` |
+| `NEXT_PUBLIC_API_URL` | `https://vitb-sports-api.onrender.com` | `lib/api.ts`, CSP `connect-src` |
 
 When the Supabase variables are missing, local `next dev` still renders pages. A production build returns **503** for protected pages instead of serving them.
 
-## Backend: `apps/api` (Leapcell)
+## Backend: `apps/api` (Render)
 
 | Variable | Secret? | Required | Description |
 |---|---|---|---|
@@ -26,7 +26,7 @@ When the Supabase variables are missing, local `next dev` still renders pages. A
 | `SUPABASE_JWT_SECRET` | **yes** | no | Only for projects still on the legacy HS256 shared secret. Leave unset when using JWT signing keys (recommended). |
 | `CORS_ALLOWED_ORIGINS` | no | yes | Comma-separated **exact** origins, e.g. `https://sports.vitbhopal.ac.in`. `https` only outside development. `*`, paths and trailing slashes are rejected at startup. |
 | `CORS_ALLOWED_ORIGIN_PATTERNS` | no | no | Preview only. Comma-separated regexes that must start with `^https://` and end with `$`, e.g. `^https://vitb-sports-[a-z0-9-]+-yourteam\.vercel\.app$`. Rejected when `APP_ENV=production`. |
-| `TRUST_PROXY_HOPS` | no | no (0) | Number of proxies in front of the API that append to `X-Forwarded-For`. Set this to Leapcell's proxy depth (normally `1`) so rate limits key on the real client address. |
+| `TRUST_PROXY_HOPS` | no | no (0) | Number of proxies in front of the API that append to `X-Forwarded-For`. Set this to Render's proxy depth (normally `1`) so rate limits key on the real client address. |
 | `RATE_LIMIT_PER_MINUTE` | no | no (120) | Per-user limit for signed-in `/v1/*` routes. |
 | `RATE_LIMIT_PER_IP_PER_MINUTE` | no | no (3000) | Per client IP across all users, as a flood backstop. Kept high because campus Wi-Fi puts many students behind one public IP; it only works if `TRUST_PROXY_HOPS` matches the host so the real client IP is used. |
 | `BODY_LIMIT_BYTES` | no | no (65536) | Maximum request body size. |
@@ -54,8 +54,8 @@ The service-role key bypasses row-level security, so the API uses it for nothing
 | Secret | Stored in | Read by |
 |---|---|---|
 | Supabase database password | Supabase dashboard / password manager | Developers running `supabase db push` |
-| `SUPABASE_JWT_SECRET` (legacy only) | Leapcell | API |
-| `SUPABASE_SERVICE_ROLE_KEY` | Leapcell | API (photo bucket only) |
+| `SUPABASE_JWT_SECRET` (legacy only) | Render | API |
+| `SUPABASE_SERVICE_ROLE_KEY` | Render | API (photo bucket only) |
 | SMTP credentials | Supabase Auth settings | Supabase Auth |
 | Google OAuth client secret | Supabase Auth → Providers → Google | Supabase Auth |
 
