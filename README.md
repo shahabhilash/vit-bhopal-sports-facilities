@@ -12,12 +12,6 @@ A booking portal for VIT Bhopal's pickleball courts, tennis courts and turf. Stu
 
 ![Home page](docs/screenshots/home.png)
 
-<p align="center">
-  <img src="docs/screenshots/book-mobile.png" alt="Booking a tennis court on a phone" width="300">
-  &nbsp;&nbsp;
-  <img src="docs/screenshots/login-mobile.png" alt="Sign-in screen on a phone" width="300">
-</p>
-
 ## What it does
 
 **Students**
