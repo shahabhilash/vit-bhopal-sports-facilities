@@ -40,9 +40,12 @@ export const FACILITIES: Record<FacilityCode, FacilityInfo> = {
     code: "turf",
     rule: FACILITY_RULES.turf,
     summary: "Full turf for groups of 10–26. Next week opens Friday 12:00 PM.",
-    image: "/images/turf-1.jpg",
-    imageAlt: "Floodlit rooftop artificial turf at dusk",
-    gallery: ["/images/turf-1.jpg"],
+    image: "/images/turf-rooftop-1.jpg",
+    imageAlt: "Netted rooftop turf between hostel blocks, with a cricket pitch and a football goal",
+    gallery: [
+      "/images/turf-rooftop-1.jpg", "/images/turf-rooftop-2.jpg", "/images/turf-rooftop-3.jpg",
+      "/images/turf-rooftop-4.jpg", "/images/turf-rooftop-5.jpg",
+    ],
     rules: [
       "Turf shoes or trainers only (no metal studs).",
       "No food or drinks on the turf.",

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 const STEPS = [
   { icon: LogIn, title: "Sign in", body: "Continue with your @vitbhopal.ac.in Google account, or get a 6-digit code by email. No password." },
-  { icon: CalendarPlus, title: "Pick a slot", body: "Choose the sport, court, day and one-hour slot, and how many people are playing." },
+  { icon: CalendarPlus, title: "Pick a slot", body: "Choose the sport, court, day and one-hour slot, and list the players' registration numbers." },
   { icon: QrCode, title: "Show your pass", body: "At the facility, the guard scans your booking pass to check you in." },
   { icon: MessageSquareText, title: "Check out", body: "Tap check out when you finish, and report anything broken." },
 ];
@@ -33,7 +33,8 @@ export default function Home() {
           className="-z-10 object-cover opacity-55"
         />
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-foreground/80 via-foreground/40 to-transparent" />
-        <div className="container py-8 sm:py-16 md:py-20">
+        {/* On phones the banner fills about three quarters of the screen, with the text at the bottom. */}
+        <div className="container flex min-h-[75svh] flex-col justify-end py-8 sm:min-h-0 sm:py-16 md:py-20">
           <h1 className="max-w-2xl text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl md:text-5xl">
             VIT Bhopal <span className="text-brand-soft">Sports Facilities</span>
           </h1>

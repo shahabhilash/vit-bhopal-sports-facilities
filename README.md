@@ -2,8 +2,6 @@
 
 A booking portal for VIT Bhopal's pickleball courts, tennis courts and turf. Students book a slot with their college account, show a QR pass at the gate, and the guard scans it to check the group in. The sports office runs everything from a dashboard.
 
-**Live:** [vit-bhopal-sports-facilities-ia3m.vercel.app](https://vit-bhopal-sports-facilities-ia3m.vercel.app)
-
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js_16-000000?logo=nextdotjs&logoColor=white)
 ![React](https://img.shields.io/badge/React_19-149ECA?logo=react&logoColor=white)
@@ -82,7 +80,7 @@ The **database is the source of truth.** Every booking rule lives in PostgreSQL 
 
 **Privacy**
 - Old booking data is deleted after its retention period and kept only as anonymous daily counts.
-- A public [privacy policy](https://vit-bhopal-sports-facilities-ia3m.vercel.app/privacy) explains what is stored and who can see it.
+- A public privacy policy page explains what is stored and who can see it.
 
 **Testing:** 239 automated tests.
 - The database suite applies every migration to an in-memory Postgres (PGlite) and attacks the policies as anonymous, student, guard and admin users. No Docker is needed.
