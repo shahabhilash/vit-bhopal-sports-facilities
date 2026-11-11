@@ -101,10 +101,27 @@ describe("guard check-in", () => {
       booking: { facility: "pickleball", resource: "Court 1", slotIndex: 3, participants: 2, ownerName: "carol", ownerRegNo: "23BCE10002" },
     });
     expect(JSON.stringify(ok)).not.toMatch(/@vitbhopal/);
+    // Booked with a count only, so there is no player list to show.
+    expect((ok.booking as Json).playerRegNos).toEqual([]);
     expect(await status(b.id)).toBe("checked_in");
 
     // A second scan is reported, not applied again.
     expect(await scan("guard", code)).toMatchObject({ result: "already_checked_in" });
+  });
+
+  it("shows the guard every listed player's registration number", async () => {
+    // Slot 9 starts at 16:30 IST. The friends have never signed in.
+    const b = await rpc<Json>("admin", `public.create_booking($1::uuid, '2026-10-28', 9::smallint, null, $2::text[], $3::uuid)`, [
+      res["tennis:Court 2"],
+      ["23BCE10008", "22mim10045", "24BAI10123"],
+      randomUUID(),
+    ]);
+    const { code } = await pass("admin", b.id);
+    await setNow(db, ist("2026-10-28", "16:25"));
+    expect(await scan("guard", code)).toMatchObject({
+      result: "checked_in",
+      booking: { participants: 3, ownerRegNo: "23BCE10008", playerRegNos: ["23BCE10008", "22MIM10045", "24BAI10123"] },
+    });
   });
 
   it("accepts a scan at exactly start + 15:00 and rejects one a second later", async () => {

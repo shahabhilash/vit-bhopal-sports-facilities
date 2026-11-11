@@ -104,6 +104,8 @@ export interface GuardScanDto {
     participants: number;
     ownerName: string | null;
     ownerRegNo: string | null;
+    /** Every listed player, the booker first. Empty for bookings made before lists were kept. */
+    playerRegNos: string[];
   };
   checkedInAt?: string | null;
   opensAt?: string;

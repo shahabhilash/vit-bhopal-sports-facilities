@@ -64,6 +64,19 @@ function ScanOutcome({ result }: { result: GuardScanDto }) {
           <dd>{b.participants}</dd>
         </dl>
       )}
+      {b && b.playerRegNos.length > 0 && (
+        <div className="mt-4 rounded-lg bg-surface p-3 text-foreground">
+          <p className="text-sm font-semibold text-muted-foreground">Registration numbers</p>
+          <ol className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 font-mono text-base min-[380px]:grid-cols-2">
+            {b.playerRegNos.map((reg, i) => (
+              <li key={reg} className="flex gap-2">
+                <span className="w-6 shrink-0 text-right text-muted-foreground">{i + 1}.</span>
+                <span className={cn(reg === b.ownerRegNo && "font-bold")}>{reg}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
     </div>
   );
 }

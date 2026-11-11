@@ -5,7 +5,7 @@ export const metadata: Metadata = { title: "Privacy policy" };
 
 // Keep this in step with the code: what is stored (supabase/migrations), who
 // can read it (docs/ROLES.md) and how long it is kept (decision Q14).
-const LAST_UPDATED = "4 November 2026";
+const LAST_UPDATED = "11 November 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -41,8 +41,8 @@ export default function PrivacyPage() {
               Google, not your Google password or other Google data.
             </li>
             <li>
-              <strong>Bookings:</strong> the facility, court, date and time slot, the number of players and, for the turf,
-              the registration numbers of the players you list.
+              <strong>Bookings:</strong> the facility, court, date and time slot, and the registration numbers of the players
+              you list.
             </li>
             <li>
               <strong>Check-in:</strong> when a guard scanned your booking pass and which guard account did it.
@@ -77,16 +77,13 @@ export default function PrivacyPage() {
               <strong>You</strong> can see your own account, bookings, waiting-list places and passes.
             </li>
             <li>
-              <strong>Guards</strong>, when they scan a pass, see that booking&apos;s facility, time, number of players, and
-              the booker&apos;s name and registration number.
+              <strong>Guards</strong>, when they scan a pass, see that booking&apos;s facility, time, the booker&apos;s name,
+              and the registration numbers of every listed player.
             </li>
             <li>
               <strong>The sports office</strong> can see all bookings, feedback and issue photos to run the facilities.
             </li>
-            <li>
-              Players you list on a turf booking can see that booking in their own list. Other students cannot see your
-              information.
-            </li>
+            <li>Other students, including the players you list, cannot see your information.</li>
           </ul>
           <p>
             The portal is hosted by service providers that store or process data on our behalf: Supabase (accounts,
