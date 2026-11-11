@@ -33,8 +33,7 @@ export default function Home() {
           className="-z-10 object-cover opacity-55"
         />
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-foreground/80 via-foreground/40 to-transparent" />
-        {/* On phones the banner fills about three quarters of the screen, with the text at the bottom. */}
-        <div className="container flex min-h-[75svh] flex-col justify-end py-8 sm:min-h-0 sm:py-16 md:py-20">
+        <div className="container py-16 sm:py-20 md:py-24">
           <h1 className="max-w-2xl text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl md:text-5xl">
             VIT Bhopal <span className="text-brand-soft">Sports Facilities</span>
           </h1>

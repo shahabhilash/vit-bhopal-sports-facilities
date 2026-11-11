@@ -13,7 +13,8 @@ export interface FacilityInfo {
 }
 
 export type BookableCode = "pickleball" | "tennis" | "turf";
-export const BOOKABLE: readonly BookableCode[] = ["pickleball", "tennis", "turf"];
+// Display order everywhere facilities are listed: the turf comes first.
+export const BOOKABLE: readonly BookableCode[] = ["turf", "pickleball", "tennis"];
 
 export const FACILITIES: Record<FacilityCode, FacilityInfo> = {
   pickleball: {

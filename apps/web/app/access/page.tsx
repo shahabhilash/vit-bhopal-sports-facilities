@@ -111,7 +111,7 @@ export default function AccessPage() {
         <h2 id="photos-title" className="text-xl font-bold tracking-tight">
           Photos
         </h2>
-        <Tabs defaultValue="pickleball" className="mt-4">
+        <Tabs defaultValue={GALLERY_TABS[0]} className="mt-4">
           <TabsList aria-label="Facility photos" className="sm:w-fit">
             {GALLERY_TABS.map((code) => (
               <TabsTrigger key={code} value={code}>
