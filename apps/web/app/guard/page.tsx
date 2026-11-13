@@ -1,9 +1,11 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import jsQR from "jsqr";
-import { Camera, CameraOff, CheckCircle2, Clock, Keyboard, ShieldAlert, XCircle, type LucideIcon } from "lucide-react";
+import { Camera, CameraOff, CheckCircle2, Clock, Keyboard, ListChecks, ScanLine, ShieldAlert, XCircle, type LucideIcon } from "lucide-react";
 import type { GuardScanDto, ScanResult } from "@vitb/shared";
+import { GuardBookings, PlayerRegList } from "@/components/guard/guard-bookings";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Notice, PageHeader, Skeleton } from "@/components/ui/feedback";
 import { FieldHint, Input, Label } from "@/components/ui/field";
 import { errorMessage } from "@/lib/api";
@@ -66,15 +68,8 @@ function ScanOutcome({ result }: { result: GuardScanDto }) {
       )}
       {b && b.playerRegNos.length > 0 && (
         <div className="mt-4 rounded-lg bg-surface p-3 text-foreground">
-          <p className="text-sm font-semibold text-muted-foreground">Registration numbers</p>
-          <ol className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 font-mono text-base min-[380px]:grid-cols-2">
-            {b.playerRegNos.map((reg, i) => (
-              <li key={reg} className="flex gap-2">
-                <span className="w-6 shrink-0 text-right text-muted-foreground">{i + 1}.</span>
-                <span className={cn(reg === b.ownerRegNo && "font-bold")}>{reg}</span>
-              </li>
-            ))}
-          </ol>
+          <p className="mb-2 text-sm font-semibold text-muted-foreground">Registration numbers</p>
+          <PlayerRegList regNos={b.playerRegNos} ownerRegNo={b.ownerRegNo} />
         </div>
       )}
     </div>
@@ -203,64 +198,83 @@ export default function GuardPage() {
 
   return (
     <div className="container max-w-xl py-4 sm:py-8">
-      <PageHeader title="Check-in scanner" description="Scan the student's booking pass. One scan checks in the whole group." />
+      <PageHeader title="Check-in scanner" description="Scan the student's booking pass, or see who has booked each slot." />
 
-      <div aria-live="assertive" className="mb-4 space-y-3">
-        {checking && <p className="text-base font-semibold">Checking…</p>}
-        {result && !checking && <ScanOutcome result={result} />}
-        {requestError && !checking && (
-          <Notice tone="danger" title="Could not check this pass">
-            {requestError}
-          </Notice>
-        )}
-      </div>
+      <Tabs defaultValue="scan" onValueChange={(tab) => tab !== "scan" && stopCamera()}>
+        <TabsList aria-label="Guard tools">
+          <TabsTrigger value="scan">
+            <ScanLine className="h-4 w-4" aria-hidden />
+            Scanner
+          </TabsTrigger>
+          <TabsTrigger value="list">
+            <ListChecks className="h-4 w-4" aria-hidden />
+            Bookings
+          </TabsTrigger>
+        </TabsList>
 
-      <div className="relative overflow-hidden rounded-xl border bg-foreground">
-        <video ref={videoRef} playsInline muted className={cn("aspect-square w-full object-cover", !cameraOn && "hidden")} aria-label="Camera view" />
-        {!cameraOn && (
-          <div className="flex aspect-square w-full flex-col items-center justify-center gap-4 p-6 text-center text-white">
-            <Camera className="h-10 w-10" aria-hidden />
-            <p className="max-w-xs text-sm text-white/85">Start the camera, then hold the student&apos;s QR code inside the frame.</p>
-            <Button size="lg" className="bg-white text-foreground hover:bg-white/90" onClick={startCamera}>
-              Start camera
-            </Button>
+        <TabsContent value="list">
+          <GuardBookings />
+        </TabsContent>
+
+        <TabsContent value="scan">
+          <div aria-live="assertive" className="mb-4 space-y-3">
+            {checking && <p className="text-base font-semibold">Checking…</p>}
+            {result && !checking && <ScanOutcome result={result} />}
+            {requestError && !checking && (
+              <Notice tone="danger" title="Could not check this pass">
+                {requestError}
+              </Notice>
+            )}
           </div>
-        )}
-        {cameraOn && <div aria-hidden className="pointer-events-none absolute inset-[18%] rounded-2xl border-4 border-white/80" />}
-      </div>
-      {cameraOn && (
-        <Button variant="outline" size="lg" className="mt-3 w-full" onClick={stopCamera}>
-          <CameraOff aria-hidden />
-          Stop camera
-        </Button>
-      )}
-      {camError && (
-        <Notice tone="warning" live className="mt-3">
-          {camError}
-        </Notice>
-      )}
 
-      <form onSubmit={submitManual} className="mt-6 space-y-2 rounded-xl border bg-surface p-4">
-        <Label htmlFor="manual-code" className="flex items-center gap-2">
-          <Keyboard className="h-4 w-4" aria-hidden />
-          Type or paste a pass code
-        </Label>
-        <Input
-          id="manual-code"
-          value={manual}
-          onChange={(e) => setManual(e.target.value)}
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          placeholder="VITB1.…"
-          className="font-mono text-sm"
-        />
-        <FieldHint>Use this if the camera cannot read the code.</FieldHint>
-        <Button type="submit" size="lg" className="w-full" disabled={checking || !manual.trim()}>
-          <ShieldAlert aria-hidden />
-          Check pass
-        </Button>
-      </form>
+          <div className="relative overflow-hidden rounded-xl border bg-foreground">
+            <video ref={videoRef} playsInline muted className={cn("aspect-square w-full object-cover", !cameraOn && "hidden")} aria-label="Camera view" />
+            {!cameraOn && (
+              <div className="flex aspect-square w-full flex-col items-center justify-center gap-4 p-6 text-center text-white">
+                <Camera className="h-10 w-10" aria-hidden />
+                <p className="max-w-xs text-sm text-white/85">Start the camera, then hold the student&apos;s QR code inside the frame.</p>
+                <Button size="lg" className="bg-white text-foreground hover:bg-white/90" onClick={startCamera}>
+                  Start camera
+                </Button>
+              </div>
+            )}
+            {cameraOn && <div aria-hidden className="pointer-events-none absolute inset-[18%] rounded-2xl border-4 border-white/80" />}
+          </div>
+          {cameraOn && (
+            <Button variant="outline" size="lg" className="mt-3 w-full" onClick={stopCamera}>
+              <CameraOff aria-hidden />
+              Stop camera
+            </Button>
+          )}
+          {camError && (
+            <Notice tone="warning" live className="mt-3">
+              {camError}
+            </Notice>
+          )}
+
+          <form onSubmit={submitManual} className="mt-6 space-y-2 rounded-xl border bg-surface p-4">
+            <Label htmlFor="manual-code" className="flex items-center gap-2">
+              <Keyboard className="h-4 w-4" aria-hidden />
+              Type or paste a pass code
+            </Label>
+            <Input
+              id="manual-code"
+              value={manual}
+              onChange={(e) => setManual(e.target.value)}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="VITB1.…"
+              className="font-mono text-sm"
+            />
+            <FieldHint>Use this if the camera cannot read the code.</FieldHint>
+            <Button type="submit" size="lg" className="w-full" disabled={checking || !manual.trim()}>
+              <ShieldAlert aria-hidden />
+              Check pass
+            </Button>
+          </form>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

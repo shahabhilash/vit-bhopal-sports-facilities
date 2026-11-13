@@ -140,6 +140,24 @@ export const checkOutSchema = z
 
 export const guardScanSchema = z.object({ code: z.string().max(200) }).strict();
 
+/** The guard's list of a day's bookings (today or the next 7 days). */
+export const guardBookingsQuerySchema = z.object({ date: isoDate }).strict();
+
+export interface GuardBookingDto {
+  facility: FacilityCode;
+  resource: string;
+  date: string;
+  slotIndex: number;
+  startsAt: string;
+  status: Exclude<BookingStatus, "cancelled">;
+  participants: number;
+  ownerName: string | null;
+  ownerRegNo: string | null;
+  /** Every listed player, the booker first. Empty for bookings made before lists were kept. */
+  playerRegNos: string[];
+  checkedInAt: string | null;
+}
+
 export const joinWaitlistSchema = createBookingSchema;
 
 // ---------------------------------------------------------------------------

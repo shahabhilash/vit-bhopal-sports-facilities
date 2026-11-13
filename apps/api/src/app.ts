@@ -14,6 +14,7 @@ import {
   createBookingSchema,
   feedbackQuerySchema,
   feedbackStatusSchema,
+  guardBookingsQuerySchema,
   guardScanSchema,
   joinWaitlistSchema,
   saveBlockSchema,
@@ -29,6 +30,7 @@ import {
   type AvailabilityEntry,
   type BookingDto,
   type BookingPassDto,
+  type GuardBookingDto,
   type GuardScanDto,
   type ProfileDto,
   type ResourceDto,
@@ -244,6 +246,11 @@ export function createApp({ config, verifyToken, db, photos }: AppDeps) {
   app.post("/v1/guard/check-in", ...signedIn, requireRole("guard", "sports_admin"), async (c) => {
     const { code } = validate(guardScanSchema, await jsonBody(c));
     return c.json(await db.rpc<GuardScanDto>("guard_check_in", { p_code: code }, c.get("user")));
+  });
+
+  app.get("/v1/guard/bookings", ...signedIn, requireRole("guard", "sports_admin"), async (c) => {
+    const { date } = validate(guardBookingsQuerySchema, c.req.query());
+    return c.json(await db.rpc<GuardBookingDto[]>("guard_bookings", { p_date: date }, c.get("user")));
   });
 
   // Issue photo: the student's own report, within 24 hours of checkout. The

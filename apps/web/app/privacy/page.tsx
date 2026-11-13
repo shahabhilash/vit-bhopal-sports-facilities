@@ -5,7 +5,7 @@ export const metadata: Metadata = { title: "Privacy policy" };
 
 // Keep this in step with the code: what is stored (supabase/migrations), who
 // can read it (docs/ROLES.md) and how long it is kept (decision Q14).
-const LAST_UPDATED = "11 November 2026";
+const LAST_UPDATED = "13 November 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -77,8 +77,9 @@ export default function PrivacyPage() {
               <strong>You</strong> can see your own account, bookings, waiting-list places and passes.
             </li>
             <li>
-              <strong>Guards</strong>, when they scan a pass, see that booking&apos;s facility, time, the booker&apos;s name,
-              and the registration numbers of every listed player.
+              <strong>Guards</strong> see each booking&apos;s facility, time, check-in state, the booker&apos;s name, and the
+              registration numbers of every listed player, when they scan a pass and in the list of bookings for the
+              coming week.
             </li>
             <li>
               <strong>The sports office</strong> can see all bookings, feedback and issue photos to run the facilities.

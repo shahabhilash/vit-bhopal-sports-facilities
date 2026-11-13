@@ -2,7 +2,17 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type CryptoKey, type JWTVerifyGetKey } from "jose";
-import type { ApiErrorBody, AvailabilityEntry, BookingDto, BookingPassDto, GuardScanDto, ProfileDto, ResourceDto, WaitlistEntryDto } from "@vitb/shared";
+import type {
+  ApiErrorBody,
+  AvailabilityEntry,
+  BookingDto,
+  BookingPassDto,
+  GuardBookingDto,
+  GuardScanDto,
+  ProfileDto,
+  ResourceDto,
+  WaitlistEntryDto,
+} from "@vitb/shared";
 import { createApp } from "../src/app";
 import { loadConfig } from "../src/config";
 import { createTokenVerifier } from "../src/lib/auth";
@@ -275,6 +285,20 @@ describe("passes, guard check-in and check-out", () => {
     } finally {
       await setNow("2026-10-25T06:00:00+05:30");
     }
+  });
+});
+
+describe("guard booking list", () => {
+  it("lists a day's bookings for guards only, and rejects dates outside the next week", async () => {
+    // Clock: Sun 25 Oct 2026, 06:00 IST.
+    const res = await call<GuardBookingDto[]>("GET", "/v1/guard/bookings?date=2026-10-25", { as: "guard" });
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    for (const b of res.body) expect(b).toHaveProperty("playerRegNos");
+    expect((await call("GET", "/v1/guard/bookings?date=2026-10-25", { as: "bob" })).status).toBe(403);
+    expect((await call("GET", "/v1/guard/bookings?date=2026-10-25")).status).toBe(401);
+    expect((await call("GET", "/v1/guard/bookings?date=2026-12-01", { as: "guard" })).status).toBe(422);
+    expect((await call("GET", "/v1/guard/bookings?date=nope", { as: "guard" })).status).toBe(422);
   });
 });
 

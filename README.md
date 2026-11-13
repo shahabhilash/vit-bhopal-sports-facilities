@@ -22,8 +22,9 @@ A booking portal for VIT Bhopal's pickleball courts, tennis courts and turf. Stu
 - Check out after playing and rate the session, or report a problem with a photo.
 
 **Guards**
-- Sign in with a staff username and password, and see only the scanner.
+- Sign in with a staff username and password, and see only the guard tools.
 - Scan a pass to check the whole group in, from 10 minutes before the start to 15 minutes after. They see the facility, time, booker and every player's registration number. Too early, too late, wrong day and cancelled passes each get a clear message.
+- Open the day's booking list: every slot, sport and court with its check-in state and the registration numbers of everyone booked, for today and the next 6 days.
 
 **Sports office**
 - Usage analytics: bookings and check-ins per day, facility and time slot.
@@ -100,39 +101,6 @@ packages/shared  Code shared by both apps: slots, facility rules, IST time, sche
 supabase/        SQL migrations, database tests, local CLI config, email template
 docs/            Decisions, deployment, environment, roles, operations, design system
 ```
-
-## Running it locally
-
-Requires Node.js 22+.
-
-```bash
-npm install
-```
-
-To try the booking screens without a Supabase project, start the demo API. It runs an in-memory Postgres with every migration and a few fake bookings.
-
-```bash
-npm run dev:local -w @vitb/api
-```
-
-Then start the web app pointed at it:
-
-```bash
-NEXT_PUBLIC_API_URL=http://localhost:8787 npm run dev:web
-```
-
-Signing in needs a real Supabase project:
-1. Copy `apps/web/.env.example` to `apps/web/.env.local`, and `apps/api/.env.example` to `apps/api/.env`.
-2. Fill in your project's values; see [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
-3. Run `npm run dev:web` and `npm run dev:api`.
-
-## Checks
-
-```bash
-npm run check
-```
-
-This runs the type checks, ESLint, and every test suite: shared, API, web and database.
 
 ## Documentation
 

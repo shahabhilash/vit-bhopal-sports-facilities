@@ -5,6 +5,7 @@ import type {
   BookingDto,
   BookingPassDto,
   CreateBookingInput,
+  GuardBookingDto,
   GuardScanDto,
   ProfileDto,
   ResourceDto,
@@ -102,8 +103,20 @@ export async function leaveWaitlist(entryId: string): Promise<void> {
   await revalidate("waitlist");
 }
 
-export function guardScan(code: string): Promise<GuardScanDto> {
-  return apiFetch<GuardScanDto>("/v1/guard/check-in", { method: "POST", body: { code }, auth: true });
+export async function guardScan(code: string): Promise<GuardScanDto> {
+  const result = await apiFetch<GuardScanDto>("/v1/guard/check-in", { method: "POST", body: { code }, auth: true });
+  // A scan can change a booking's check-in state in the guard's list.
+  void revalidate("guard-bookings:");
+  return result;
+}
+
+/** A day's bookings for the guard's list; null date makes no request. */
+export function useGuardBookings(date: string | null) {
+  const fetcher = useCallback(
+    () => apiFetch<GuardBookingDto[]>(`/v1/guard/bookings?date=${date}`, { auth: true }),
+    [date],
+  );
+  return useApi(date ? `guard-bookings:${date}` : null, fetcher);
 }
 
 export async function uploadIssuePhoto(bookingId: string, file: File): Promise<void> {

@@ -424,3 +424,42 @@ describe("guard accounts", () => {
     expect(await rpc("admin", `public.my_waitlist()`)).toEqual([]);
   });
 });
+
+describe("guard booking list", () => {
+  const list = (who: string, date: string) => rpc<Json[]>(who, `public.guard_bookings($1::date)`, [date]);
+
+  it("shows the guard each slot's booking with every player's registration number, without cancelled ones", async () => {
+    const kept = await rpc<Json>("admin", `public.create_booking($1::uuid, '2026-10-30', 2::smallint, null, $2::text[], $3::uuid)`, [
+      res["tennis:Court 1"],
+      ["23BCE10008", "22mim10045"],
+      randomUUID(),
+    ]);
+    const dropped = await book("erin", "pickleball:Court 1", "2026-10-30", 5);
+    await cancel("erin", dropped.id);
+
+    const rows = await list("guard", "2026-10-30");
+    expect(rows).toContainEqual(
+      expect.objectContaining({
+        facility: "tennis",
+        resource: "Court 1",
+        slotIndex: 2,
+        status: "confirmed",
+        participants: 2,
+        ownerName: "admin",
+        ownerRegNo: "23BCE10008",
+        playerRegNos: ["23BCE10008", "22MIM10045"],
+      }),
+    );
+    expect(rows.filter((r) => r.slotIndex === 5 && r.facility === "pickleball")).toEqual([]);
+    expect(JSON.stringify(rows)).not.toMatch(/@vitbhopal|"id"/);
+    expect(kept.status).toBe("confirmed");
+  });
+
+  it("is only for guards and admins, and only for today and the next 7 days", async () => {
+    await expectDenied(list("alice", "2026-10-30"));
+    expect(Array.isArray(await list("admin", "2026-10-26"))).toBe(true);
+    await expectCode(list("guard", "2026-10-25"), "VB005");
+    await expectCode(list("guard", "2026-11-03"), "VB005");
+    await expectDenied(as(db, { role: "anon" }, (tx) => tx.query(`select public.guard_bookings('2026-10-26')`)));
+  });
+});

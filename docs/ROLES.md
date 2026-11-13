@@ -42,9 +42,9 @@ Phase 6 adds an admin screen that calls it. Until then, a project owner adds gua
 
 ## What a guard account can do
 
-Only scan passes. An account holding `guard` (and not `sports_admin`) is refused, with SQLSTATE 42501, by every student action in the database: booking, cancelling, booking passes, checking out and feedback, issue photos, the waitlist, and editing its profile (including through the table directly). Migration `20261104090000_guard_only.sql` does this by renaming each of those functions to `*_unguarded`, with no client access, behind a wrapper that calls `require_not_guard()` first. Guards keep `guard_check_in`, `my_profile` and the public availability reads.
+Scan passes and read the booking list (`guard_bookings`: today and the next 7 days, with each booking's registration numbers). Nothing else. An account holding `guard` (and not `sports_admin`) is refused, with SQLSTATE 42501, by every student action in the database: booking, cancelling, booking passes, checking out and feedback, issue photos, the waitlist, and editing its profile (including through the table directly). Migration `20261104090000_guard_only.sql` does this by renaming each of those functions to `*_unguarded`, with no client access, behind a wrapper that calls `require_not_guard()` first. Guards keep `guard_check_in`, `guard_bookings`, `my_profile` and the public availability reads.
 
-The website matches: a guard sees only the **Scanner** and **Sign out**, and any other page sends them back to `/guard`. The interface is a convenience; the database rules are what enforce it.
+The website matches: a guard sees only the guard page (**Scanner** and **Bookings** tabs) and **Sign out**, and any other page sends them back to `/guard`. The interface is a convenience; the database rules are what enforce it.
 
 Granting `guard` to an existing student account takes away that student's booking features. Any booking they already hold still runs (no-show release and auto check-out are scheduled jobs), but they can no longer open its pass. Students can still list a guard's registration number as a turf player if the guard account has one; staff accounts created with a password never do, and cannot set one.
 
